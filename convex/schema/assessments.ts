@@ -22,4 +22,6 @@ export const assessments = defineTable({
 })
   .index("by_athlete", ["athleteId"])
   .index("by_athlete_and_metric", ["athleteId", "metric"])
-  .index("by_athlete_and_assessedOn", ["athleteId", "assessedOn"]);
+  .index("by_athlete_and_assessedOn", ["athleteId", "assessedOn"])
+  .index("by_academy", ["academyId"])
+  .index("by_academy_and_assessedOn", ["academyId", "assessedOn"]);

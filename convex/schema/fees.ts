@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 export const feeStatusValidator = v.union(
   v.literal("unpaid"),
+  v.literal("partially_paid"),
   v.literal("paid"),
   v.literal("overdue"),
   v.literal("waived"),

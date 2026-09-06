@@ -88,7 +88,7 @@ import { Spinner } from "@/components/ui/spinner.tsx";
 import { cn } from "@/lib/utils.ts";
 import RecordPaymentDialog from "./_components/record-payment-dialog.tsx";
 
-type FeeStatus = "unpaid" | "paid" | "overdue" | "waived";
+type FeeStatus = "unpaid" | "partially_paid" | "paid" | "overdue" | "waived";
 
 const STATUS_CONFIG: Record<
   FeeStatus,
@@ -102,6 +102,11 @@ const STATUS_CONFIG: Record<
     label: "Unpaid",
     icon: Clock,
     className: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30",
+  },
+  partially_paid: {
+    label: "Partially Paid",
+    icon: Clock,
+    className: "bg-blue-500/15 text-blue-500 border-blue-500/30",
   },
   paid: {
     label: "Paid",
@@ -144,6 +149,8 @@ type FeeWithAthlete = {
   athleteId: Id<"athletes">;
   athleteName: string;
   athleteSport?: string;
+  totalPaid?: number;
+  remainingBalance?: number;
 };
 
 export default function FinancePage() {
@@ -201,6 +208,8 @@ export default function FinancePage() {
   const allFees = useQuery(api.fees.listFeesForAcademy, {});
   const counts = {
     unpaid: allFees?.filter((f) => f.status === "unpaid").length ?? 0,
+    partially_paid:
+      allFees?.filter((f) => f.status === "partially_paid").length ?? 0,
     overdue: allFees?.filter((f) => f.status === "overdue").length ?? 0,
     paid: allFees?.filter((f) => f.status === "paid").length ?? 0,
     waived: allFees?.filter((f) => f.status === "waived").length ?? 0,
@@ -225,8 +234,10 @@ export default function FinancePage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {(["unpaid", "overdue", "paid", "waived"] as const).map((s) => {
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {(
+          ["unpaid", "partially_paid", "overdue", "paid", "waived"] as const
+        ).map((s) => {
           const cfg = STATUS_CONFIG[s];
           const Icon = cfg.icon;
           return (
@@ -336,7 +347,16 @@ export default function FinancePage() {
                         </TableCell>
                         <TableCell>{fee.label}</TableCell>
                         <TableCell className="font-mono font-semibold">
-                          {fee.currency} {fee.amountDue.toFixed(2)}
+                          <div>
+                            {fee.currency} {fee.amountDue.toFixed(2)}
+                          </div>
+                          {fee.status === "partially_paid" &&
+                            fee.remainingBalance !== undefined && (
+                              <div className="text-xs font-normal text-muted-foreground">
+                                {fee.currency} {fee.remainingBalance.toFixed(2)}{" "}
+                                rem.
+                              </div>
+                            )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {fee.dueDate}

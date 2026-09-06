@@ -16,6 +16,7 @@ import FinancePage from "./pages/finance/page.tsx";
 import MyFeesPage from "./pages/finance/my-fees-page.tsx";
 import InvoicesPage from "./pages/invoices/page.tsx";
 import AdminBillingPage from "./pages/admin/billing/page.tsx";
+import SchedulePage from "./pages/schedule/page.tsx";
 
 export default function App() {
   return (
@@ -77,6 +78,14 @@ export default function App() {
             element={
               <ProtectedRoute allow={["academy_admin", "coach", "athlete"]}>
                 <SessionDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/schedule"
+            element={
+              <ProtectedRoute allow={["academy_admin", "coach", "athlete"]}>
+                <SchedulePage />
               </ProtectedRoute>
             }
           />

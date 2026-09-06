@@ -29,4 +29,6 @@ export const athletes = defineTable({
 })
   .index("by_academy", ["academyId"])
   .index("by_academy_and_status", ["academyId", "status"])
+  .index("by_academy_and_email", ["academyId", "email"])
+  .index("by_email", ["email"])
   .index("by_user", ["userId"]);

@@ -207,3 +207,80 @@ export const getAthlete = query({
     return athlete;
   },
 });
+
+/** Academy admin/coach: manually link an athlete record to a registered user account by email. */
+export const linkAthleteToUser = mutation({
+  args: {
+    athleteId: v.id("athletes"),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, ["academy_admin", "coach"]);
+    const athlete = await ctx.db.get("athletes", args.athleteId);
+    if (!athlete) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Athlete not found",
+      });
+    }
+    await requireAcademyMember(ctx, athlete.academyId);
+
+    const email = args.email.trim().toLowerCase();
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+
+    if (!user) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "No registered user found with that email address",
+      });
+    }
+
+    if (user.academyId && user.academyId !== athlete.academyId) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "User belongs to a different academy",
+      });
+    }
+
+    if (!user.academyId) {
+      await ctx.db.patch("users", user._id, {
+        academyId: athlete.academyId,
+        role: "athlete",
+      });
+    }
+
+    await ctx.db.patch("athletes", args.athleteId, {
+      userId: user._id,
+      email,
+    });
+
+    return null;
+  },
+});
+
+/** Academy admin/coach: unlink an athlete from their registered user account. */
+export const unlinkAthleteUser = mutation({
+  args: {
+    athleteId: v.id("athletes"),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, ["academy_admin", "coach"]);
+    const athlete = await ctx.db.get("athletes", args.athleteId);
+    if (!athlete) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Athlete not found",
+      });
+    }
+    await requireAcademyMember(ctx, athlete.academyId);
+
+    await ctx.db.patch("athletes", args.athleteId, {
+      userId: undefined,
+    });
+
+    return null;
+  },
+});

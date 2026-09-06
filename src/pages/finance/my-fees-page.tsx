@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/empty.tsx";
 import { cn } from "@/lib/utils.ts";
 
-type FeeStatus = "unpaid" | "paid" | "overdue" | "waived";
+type FeeStatus = "unpaid" | "partially_paid" | "paid" | "overdue" | "waived";
 
 const STATUS_CONFIG: Record<
   FeeStatus,
@@ -40,6 +40,11 @@ const STATUS_CONFIG: Record<
     label: "Unpaid",
     icon: Clock,
     className: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30",
+  },
+  partially_paid: {
+    label: "Partially Paid",
+    icon: Clock,
+    className: "bg-blue-500/15 text-blue-500 border-blue-500/30",
   },
   paid: {
     label: "Paid",
@@ -86,8 +91,13 @@ export default function MyFeesPage() {
   }
 
   const unpaidTotal = fees
-    .filter((f) => f.status === "unpaid" || f.status === "overdue")
-    .reduce((sum, f) => sum + f.amountDue, 0);
+    .filter(
+      (f) =>
+        f.status === "unpaid" ||
+        f.status === "overdue" ||
+        f.status === "partially_paid",
+    )
+    .reduce((sum, f) => sum + (f.remainingBalance ?? f.amountDue), 0);
   const currency = fees[0]?.currency ?? "USD";
 
   return (
@@ -148,6 +158,13 @@ export default function MyFeesPage() {
                       <span className="font-display text-xl font-bold">
                         {fee.currency} {fee.amountDue.toFixed(2)}
                       </span>
+                      {fee.status === "partially_paid" &&
+                        fee.remainingBalance !== undefined && (
+                          <span className="text-xs text-muted-foreground">
+                            ({fee.currency} {fee.remainingBalance.toFixed(2)}{" "}
+                            remaining)
+                          </span>
+                        )}
                       <span
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",

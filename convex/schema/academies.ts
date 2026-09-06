@@ -7,6 +7,7 @@ export const academies = defineTable({
   status: v.union(v.literal("active"), v.literal("suspended")),
   createdBy: v.optional(v.id("users")),
   createdAt: v.string(),
+  nextInvoiceNumber: v.optional(v.number()),
 })
   .index("by_slug", ["slug"])
   .index("by_status", ["status"]);

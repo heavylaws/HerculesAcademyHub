@@ -42,4 +42,5 @@ export const videoAnalyses = defineTable({
   createdBy: v.id("users"),
 })
   .index("by_athlete", ["athleteId"])
-  .index("by_athlete_and_status", ["athleteId", "status"]);
+  .index("by_athlete_and_status", ["athleteId", "status"])
+  .index("by_academy", ["academyId"]);

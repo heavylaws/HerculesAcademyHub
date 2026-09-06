@@ -69,11 +69,30 @@ export default function AdminBillingPage() {
                 <DollarSign className="size-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <span className="text-2xl font-bold font-display">
-                  {data.grandTotal.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
+                {data.currencyTotals &&
+                Object.keys(data.currencyTotals).length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    {Object.entries(data.currencyTotals).map(([curr, val]) => (
+                      <div
+                        key={curr}
+                        className="text-2xl font-bold font-display"
+                      >
+                        <span className="text-sm font-normal text-muted-foreground mr-1.5">
+                          {curr}
+                        </span>
+                        {val.invoiced.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-2xl font-bold font-display">
+                    {data.grandTotal.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </span>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -84,11 +103,30 @@ export default function AdminBillingPage() {
                 <CheckCircle2 className="size-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <span className="text-2xl font-bold font-display text-primary">
-                  {data.paidTotal.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
+                {data.currencyTotals &&
+                Object.keys(data.currencyTotals).length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    {Object.entries(data.currencyTotals).map(([curr, val]) => (
+                      <div
+                        key={curr}
+                        className="text-2xl font-bold font-display text-primary"
+                      >
+                        <span className="text-sm font-normal text-muted-foreground mr-1.5">
+                          {curr}
+                        </span>
+                        {val.paid.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-2xl font-bold font-display text-primary">
+                    {data.paidTotal.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </span>
+                )}
               </CardContent>
             </Card>
           </div>

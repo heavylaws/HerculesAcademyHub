@@ -10,17 +10,24 @@ const FINANCE_ROLES: Array<Doc<"users">["role"]> = [
   "accounting",
 ];
 
-/** Generate a zero-padded invoice number for an academy. */
+/** Generate a zero-padded invoice number for an academy using an atomic counter on the academy record. */
 async function buildInvoiceNumber(
   ctx: MutationCtx,
   academyId: Id<"academies">,
 ): Promise<string> {
-  const existing = await ctx.db
-    .query("invoices")
-    .withIndex("by_academy", (q) => q.eq("academyId", academyId))
-    .collect();
-  const n = existing.length + 1;
-  return `INV-${String(n).padStart(4, "0")}`;
+  const academy = await ctx.db.get("academies", academyId);
+  let nextNum = academy?.nextInvoiceNumber;
+  if (nextNum === undefined) {
+    const existing = await ctx.db
+      .query("invoices")
+      .withIndex("by_academy", (q) => q.eq("academyId", academyId))
+      .collect();
+    nextNum = existing.length + 1;
+  }
+  await ctx.db.patch("academies", academyId, {
+    nextInvoiceNumber: nextNum + 1,
+  });
+  return `INV-${String(nextNum).padStart(4, "0")}`;
 }
 
 /** Create a new invoice. */
@@ -181,6 +188,19 @@ export const adminBillingOverview = query({
       }),
     );
 
+    const currencyTotals: Record<string, { invoiced: number; paid: number }> =
+      {};
+    for (const inv of allInvoices) {
+      const curr = inv.currency || "USD";
+      if (!currencyTotals[curr]) {
+        currencyTotals[curr] = { invoiced: 0, paid: 0 };
+      }
+      currencyTotals[curr].invoiced += inv.amount;
+      if (inv.status === "paid") {
+        currencyTotals[curr].paid += inv.amount;
+      }
+    }
+
     const grandTotal = allInvoices.reduce((s, i) => s + i.amount, 0);
     const paidTotal = allInvoices
       .filter((i) => i.status === "paid")
@@ -190,6 +210,7 @@ export const adminBillingOverview = query({
       academies,
       grandTotal,
       paidTotal,
+      currencyTotals,
       totalInvoices: allInvoices.length,
     };
   },

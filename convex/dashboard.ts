@@ -81,44 +81,28 @@ export const getDashboardData = query({
         teamMemberCounts.set(team._id, rows.length);
       }
 
-      // Recent assessments: use athlete list to scope by academy
-      const athleteIds = new Set(athletes.map((a) => a._id));
+      // Recent assessments: single query using by_academy_and_assessedOn index
       const athleteMap = new Map(athletes.map((a) => [a._id, a]));
-      const recentRaw: Array<{
-        _id: string;
-        metric: string;
-        value: number;
-        unit: string | undefined;
-        assessedOn: string;
-        athleteName: string;
-        athleteId: Id<"athletes">;
-      }> = [];
-      // Grab last 2 assessments per athlete (bounded read)
-      for (const athleteId of athleteIds) {
-        const rows = await ctx.db
-          .query("assessments")
-          .withIndex("by_athlete_and_assessedOn", (q) =>
-            q.eq("athleteId", athleteId),
-          )
-          .order("desc")
-          .take(2);
-        for (const r of rows) {
-          const a = athleteMap.get(r.athleteId);
-          recentRaw.push({
-            _id: r._id,
-            metric: r.metric,
-            value: r.value,
-            unit: r.unit,
-            assessedOn: r.assessedOn,
-            athleteName: a ? `${a.firstName} ${a.lastName}` : "Unknown",
-            athleteId: r.athleteId,
-          });
-        }
-      }
-      // Sort by assessedOn desc and take top 6
-      const recentAssessments = recentRaw
-        .sort((a, b) => b.assessedOn.localeCompare(a.assessedOn))
-        .slice(0, 6);
+      const recentAssessmentDocs = await ctx.db
+        .query("assessments")
+        .withIndex("by_academy_and_assessedOn", (q) =>
+          q.eq("academyId", user.academyId!),
+        )
+        .order("desc")
+        .take(6);
+
+      const recentAssessments = recentAssessmentDocs.map((r) => {
+        const a = athleteMap.get(r.athleteId);
+        return {
+          _id: r._id,
+          metric: r.metric,
+          value: r.value,
+          unit: r.unit,
+          assessedOn: r.assessedOn,
+          athleteName: a ? `${a.firstName} ${a.lastName}` : "Unknown",
+          athleteId: r.athleteId,
+        };
+      });
 
       return {
         role: user.role,

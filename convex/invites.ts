@@ -32,7 +32,8 @@ export const createInvite = mutation({
       ) {
         throw new ConvexError({
           code: "FORBIDDEN",
-          message: "Academy admins can only invite coaches or athletes",
+          message:
+            "Academy admins can only invite coaches, accounting staff, or athletes",
         });
       }
     } else if (args.role !== "academy_admin") {
@@ -54,11 +55,54 @@ export const createInvite = mutation({
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", email))
       .first();
+
     if (existingUser) {
-      throw new ConvexError({
-        code: "CONFLICT",
-        message: "A user with this email already exists",
+      if (existingUser.role) {
+        throw new ConvexError({
+          code: "CONFLICT",
+          message: "A user with this email already belongs to an academy",
+        });
+      }
+
+      // User signed up previously and is waiting on the Pending Access screen.
+      await ctx.db.patch("users", existingUser._id, {
+        role: args.role,
+        academyId: args.academyId,
       });
+
+      // If an athlete record matches this email, link them
+      const athlete = await ctx.db
+        .query("athletes")
+        .withIndex("by_academy_and_email", (q) =>
+          q.eq("academyId", args.academyId).eq("email", email),
+        )
+        .first();
+      if (athlete && !athlete.userId) {
+        await ctx.db.patch("athletes", athlete._id, {
+          userId: existingUser._id,
+        });
+      }
+
+      // Record an accepted invite for audit trail
+      const inviteId = await ctx.db.insert("invites", {
+        academyId: args.academyId,
+        email,
+        role: args.role,
+        invitedBy: user._id,
+        status: "accepted",
+        createdAt: new Date().toISOString(),
+        acceptedAt: new Date().toISOString(),
+      });
+
+      const academy = await ctx.db.get("academies", args.academyId);
+      await ctx.scheduler.runAfter(0, internal.emails.sendInviteEmail, {
+        to: email,
+        inviterName: user.name ?? "A team admin",
+        academyName: academy?.name ?? "the academy",
+        role: args.role,
+      });
+
+      return inviteId;
     }
 
     const existingInvite = await ctx.db

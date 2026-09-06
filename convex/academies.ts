@@ -108,6 +108,73 @@ export const deleteAcademy = mutation({
       await ctx.db.delete("teams", team._id);
     }
 
+    // Delete training plans and their plan items
+    const plans = await ctx.db
+      .query("trainingPlans")
+      .withIndex("by_academy", (q) => q.eq("academyId", academyId))
+      .collect();
+    for (const plan of plans) {
+      const items = await ctx.db
+        .query("planItems")
+        .withIndex("by_plan", (q) => q.eq("planId", plan._id))
+        .collect();
+      for (const item of items) {
+        await ctx.db.delete("planItems", item._id);
+      }
+      await ctx.db.delete("trainingPlans", plan._id);
+    }
+
+    // Delete assessments
+    const assessmentList = await ctx.db
+      .query("assessments")
+      .withIndex("by_academy", (q) => q.eq("academyId", academyId))
+      .collect();
+    for (const a of assessmentList) {
+      await ctx.db.delete("assessments", a._id);
+    }
+
+    // Delete video analyses and their stored video files
+    const videoList = await ctx.db
+      .query("videoAnalyses")
+      .withIndex("by_academy", (q) => q.eq("academyId", academyId))
+      .collect();
+    for (const v of videoList) {
+      if (v.storageId) {
+        try {
+          await ctx.storage.delete(v.storageId);
+        } catch {
+          // Ignore missing storage files
+        }
+      }
+      await ctx.db.delete("videoAnalyses", v._id);
+    }
+
+    // Delete athlete fees and fee payments
+    const payments = await ctx.db
+      .query("feePayments")
+      .withIndex("by_academy", (q) => q.eq("academyId", academyId))
+      .collect();
+    for (const p of payments) {
+      await ctx.db.delete("feePayments", p._id);
+    }
+
+    const fees = await ctx.db
+      .query("athleteFees")
+      .withIndex("by_academy", (q) => q.eq("academyId", academyId))
+      .collect();
+    for (const f of fees) {
+      await ctx.db.delete("athleteFees", f._id);
+    }
+
+    // Delete invoices
+    const invoiceList = await ctx.db
+      .query("invoices")
+      .withIndex("by_academy", (q) => q.eq("academyId", academyId))
+      .collect();
+    for (const inv of invoiceList) {
+      await ctx.db.delete("invoices", inv._id);
+    }
+
     // Delete pending invites
     const invites = await ctx.db
       .query("invites")

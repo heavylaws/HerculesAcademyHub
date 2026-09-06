@@ -107,6 +107,13 @@ export const recordPayment = mutation({
       throw new ConvexError({ code: "FORBIDDEN", message: "Not your academy" });
     }
 
+    if (args.amountPaid <= 0) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Amount paid must be greater than zero",
+      });
+    }
+
     await ctx.db.insert("feePayments", {
       feeId: args.feeId,
       athleteId: fee.athleteId,
@@ -120,8 +127,18 @@ export const recordPayment = mutation({
       recordedAt: new Date().toISOString(),
     });
 
-    // Mark fee as paid
-    await ctx.db.patch("athleteFees", args.feeId, { status: "paid" });
+    // Query cumulative payments to accurately determine paid vs partially_paid status
+    const allPayments = await ctx.db
+      .query("feePayments")
+      .withIndex("by_fee", (q) => q.eq("feeId", args.feeId))
+      .collect();
+    const totalPaid = allPayments.reduce((sum, p) => sum + p.amountPaid, 0);
+
+    const newStatus =
+      totalPaid >= fee.amountDue
+        ? ("paid" as const)
+        : ("partially_paid" as const);
+    await ctx.db.patch("athleteFees", args.feeId, { status: newStatus });
 
     // Notify athlete payment received
     await ctx.scheduler.runAfter(0, internal.emails.sendFeeNotification, {
@@ -149,13 +166,15 @@ export const deleteFee = mutation({
       .query("feePayments")
       .withIndex("by_fee", (q) => q.eq("feeId", args.feeId))
       .collect();
-    for (const p of payments) await ctx.db.delete("feePayments", p._id);
+    for (const p of payments) {
+      await ctx.db.delete("feePayments", p._id);
+    }
     await ctx.db.delete("athleteFees", args.feeId);
     return null;
   },
 });
 
-/** List all fees for the academy with athlete info, optionally filtered by status. */
+/** List all fees for the caller's academy, optionally filtered by status. */
 export const listFeesForAcademy = query({
   args: { status: v.optional(feeStatusValidator) },
   handler: async (ctx, args) => {
@@ -176,16 +195,25 @@ export const listFeesForAcademy = query({
           .order("desc")
           .collect();
 
-    // Attach athlete name
+    // Attach athlete name, payments sum, and remaining balance
     const result = await Promise.all(
       fees.map(async (fee) => {
-        const athlete = await ctx.db.get("athletes", fee.athleteId);
+        const [athlete, payments] = await Promise.all([
+          ctx.db.get("athletes", fee.athleteId),
+          ctx.db
+            .query("feePayments")
+            .withIndex("by_fee", (q) => q.eq("feeId", fee._id))
+            .collect(),
+        ]);
+        const totalPaid = payments.reduce((s, p) => s + p.amountPaid, 0);
         return {
           ...fee,
           athleteName: athlete
             ? `${athlete.firstName} ${athlete.lastName}`
             : "Unknown",
           athleteSport: athlete?.sport,
+          totalPaid,
+          remainingBalance: Math.max(0, fee.amountDue - totalPaid),
         };
       }),
     );
@@ -222,7 +250,7 @@ export const listFeesForAthlete = query({
       .order("desc")
       .collect();
 
-    // Attach payment history per fee
+    // Attach payment history, total paid and remaining balance per fee
     const result = await Promise.all(
       fees.map(async (fee) => {
         const payments = await ctx.db
@@ -230,7 +258,13 @@ export const listFeesForAthlete = query({
           .withIndex("by_fee", (q) => q.eq("feeId", fee._id))
           .order("desc")
           .collect();
-        return { ...fee, payments };
+        const totalPaid = payments.reduce((s, p) => s + p.amountPaid, 0);
+        return {
+          ...fee,
+          payments,
+          totalPaid,
+          remainingBalance: Math.max(0, fee.amountDue - totalPaid),
+        };
       }),
     );
     return result;

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -50,6 +51,7 @@ type Fee = {
   amountDue: number;
   currency: string;
   athleteName: string;
+  remainingBalance?: number;
 };
 
 export default function RecordPaymentDialog({
@@ -65,12 +67,23 @@ export default function RecordPaymentDialog({
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
-      amountPaid: fee.amountDue,
+      amountPaid: fee.remainingBalance ?? fee.amountDue,
       paidOn: new Date().toISOString().split("T")[0],
       method: "",
       note: "",
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        amountPaid: fee.remainingBalance ?? fee.amountDue,
+        paidOn: new Date().toISOString().split("T")[0],
+        method: "",
+        note: "",
+      });
+    }
+  }, [open, fee, form]);
 
   const handleSubmit = async (values: Values) => {
     try {
@@ -108,7 +121,15 @@ export default function RecordPaymentDialog({
           <DialogTitle>Record payment</DialogTitle>
           <DialogDescription>
             Record a payment for <strong>{fee.athleteName}</strong> —{" "}
-            {fee.label}. The athlete will receive a confirmation email.
+            {fee.label}.
+            {fee.remainingBalance !== undefined &&
+            fee.remainingBalance < fee.amountDue ? (
+              <span className="block mt-1 font-medium text-foreground">
+                Remaining balance: {fee.currency}{" "}
+                {fee.remainingBalance.toFixed(2)} (Total fee: {fee.currency}{" "}
+                {fee.amountDue.toFixed(2)})
+              </span>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

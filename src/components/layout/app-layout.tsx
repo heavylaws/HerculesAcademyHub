@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   Building2,
+  Calendar,
   DollarSign,
   FileText,
   LayoutDashboard,
@@ -58,6 +59,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/", label: "Overview", icon: LayoutDashboard },
     { to: "/athletes", label: "Athletes", icon: UserRound },
     { to: "/teams", label: "Teams", icon: Shield },
+    { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/staff", label: "Staff", icon: Users },
     { to: "/finance", label: "Fees", icon: DollarSign },
     { to: "/invoices", label: "Invoices", icon: FileText },
@@ -66,6 +68,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/", label: "Overview", icon: LayoutDashboard },
     { to: "/athletes", label: "Athletes", icon: UserRound },
     { to: "/teams", label: "Teams", icon: Shield },
+    { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/staff", label: "Staff", icon: Users },
   ],
   accounting: [
@@ -77,6 +80,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/", label: "Overview", icon: LayoutDashboard },
     { to: "/athletes", label: "My profile", icon: UserRound },
     { to: "/teams", label: "My teams", icon: Shield },
+    { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/finance/my-fees", label: "My fees", icon: DollarSign },
   ],
 };

@@ -9,6 +9,7 @@ import {
   CalendarRange,
   CheckCircle2,
   ClipboardList,
+  Link2,
   Mail,
   Pencil,
   Phone,
@@ -16,12 +17,22 @@ import {
   Ruler,
   ShieldOff,
   ShieldCheck,
+  Unlink,
   UserRound,
   Weight,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog.tsx";
 import {
   Card,
   CardContent,
@@ -92,8 +103,53 @@ export default function AthleteDetail() {
     athleteId ? { athleteId: athleteId as Id<"athletes"> } : "skip",
   );
   const setStatus = useMutation(api.athletes.setAthleteStatus);
+  const linkToUser = useMutation(api.athletes.linkAthleteToUser);
+  const unlinkUser = useMutation(api.athletes.unlinkAthleteUser);
   const [editOpen, setEditOpen] = useState(false);
   const [createPlanOpen, setCreatePlanOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
+
+  const handleLinkAccount = async () => {
+    if (!athlete || !linkEmail.trim()) return;
+    setIsLinking(true);
+    try {
+      await linkToUser({
+        athleteId: athlete._id,
+        email: linkEmail.trim(),
+      });
+      toast.success("Login account linked to athlete");
+      setLinkOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof ConvexError
+          ? String((error.data as { message?: string }).message)
+          : "Failed to link account",
+      );
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const handleUnlinkAccount = async () => {
+    if (!athlete) return;
+    setIsLinking(true);
+    try {
+      await unlinkUser({
+        athleteId: athlete._id,
+      });
+      toast.success("Login account unlinked");
+    } catch (error) {
+      toast.error(
+        error instanceof ConvexError
+          ? String((error.data as { message?: string }).message)
+          : "Failed to unlink account",
+      );
+    } finally {
+      setIsLinking(false);
+    }
+  };
 
   const handleToggleStatus = async () => {
     if (!athlete) return;
@@ -187,11 +243,51 @@ export default function AthleteDetail() {
                   >
                     {athlete.status === "active" ? "Active" : "Inactive"}
                   </Badge>
+                  {athlete.userId ? (
+                    <Badge
+                      variant="outline"
+                      className="border-primary/40 text-primary gap-1"
+                    >
+                      <Link2 className="size-3" />
+                      Login Linked
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-muted-foreground gap-1"
+                    >
+                      <Unlink className="size-3" />
+                      No Login Linked
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
             {canManage && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {athlete.userId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUnlinkAccount}
+                    disabled={isLinking}
+                  >
+                    <Unlink className="size-4" />
+                    Unlink login
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setLinkEmail(athlete.email ?? "");
+                      setLinkOpen(true);
+                    }}
+                  >
+                    <Link2 className="size-4" />
+                    Link login
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
@@ -365,6 +461,43 @@ export default function AthleteDetail() {
         canManage={canManage}
         isLoading={videoAnalyses === undefined}
       />
+
+      {/* Link Account Dialog */}
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link Athlete to User Account</DialogTitle>
+            <DialogDescription>
+              Connect this athlete profile to a registered user account so the
+              athlete can log in and view their stats, training plans, and fees.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <label className="text-sm font-medium">User Email Address</label>
+            <Input
+              type="email"
+              placeholder="athlete@example.com"
+              value={linkEmail}
+              onChange={(e) => setLinkEmail(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setLinkOpen(false)}
+              disabled={isLinking}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleLinkAccount}
+              disabled={isLinking || !linkEmail.trim()}
+            >
+              {isLinking ? "Linking..." : "Link Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
