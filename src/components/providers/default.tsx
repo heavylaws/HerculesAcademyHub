@@ -4,6 +4,7 @@ import { QueryClientProvider } from "./query-client.tsx";
 import { ThemeProvider } from "./theme.tsx";
 import { Toaster } from "../ui/sonner.tsx";
 import { TooltipProvider } from "../ui/tooltip.tsx";
+import { DevPersonaSwitcher } from "../ui/dev-persona-switcher.tsx";
 
 export function DefaultProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export function DefaultProviders({ children }: { children: React.ReactNode }) {
             <ThemeProvider>
               <Toaster />
               {children}
+              <DevPersonaSwitcher />
             </ThemeProvider>
           </TooltipProvider>
         </QueryClientProvider>

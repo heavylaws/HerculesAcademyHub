@@ -1,0 +1,1316 @@
+import {
+  SEED_ACADEMIES,
+  SEED_USERS,
+  SEED_ATHLETES,
+  SEED_TEAMS,
+  SEED_TEAM_MEMBERS,
+  SEED_TRAINING_SESSIONS,
+  SEED_ATTENDANCE,
+  SEED_TRAINING_PLANS,
+  SEED_PLAN_ITEMS,
+  SEED_ASSESSMENTS,
+  SEED_FEES,
+  SEED_FEE_PAYMENTS,
+  SEED_INVOICES,
+  SEED_INVITES,
+  type MockAcademy,
+  type MockUser,
+  type MockAthlete,
+  type MockTeam,
+  type MockTeamMember,
+  type MockTrainingSession,
+  type MockAttendanceRecord,
+  type MockTrainingPlan,
+  type MockPlanItem,
+  type MockAssessment,
+  type MockAthleteFee,
+  type MockFeePayment,
+  type MockInvoice,
+  type MockInvite,
+} from "./local-mock-data.ts";
+
+export interface MockDatabase {
+  academies: MockAcademy[];
+  users: MockUser[];
+  athletes: MockAthlete[];
+  teams: MockTeam[];
+  teamMembers: MockTeamMember[];
+  trainingSessions: MockTrainingSession[];
+  attendanceRecords: MockAttendanceRecord[];
+  trainingPlans: MockTrainingPlan[];
+  planItems: MockPlanItem[];
+  assessments: MockAssessment[];
+  athleteFees: MockAthleteFee[];
+  feePayments: MockFeePayment[];
+  invoices: MockInvoice[];
+  invites: MockInvite[];
+}
+
+const STORAGE_KEY = "peakform_mock_db_v2";
+const PERSONA_KEY = "peakform_mock_persona_id";
+
+function getInitialDb(): MockDatabase {
+  return {
+    academies: [...SEED_ACADEMIES],
+    users: [...SEED_USERS],
+    athletes: [...SEED_ATHLETES],
+    teams: [...SEED_TEAMS],
+    teamMembers: [...SEED_TEAM_MEMBERS],
+    trainingSessions: [...SEED_TRAINING_SESSIONS],
+    attendanceRecords: [...SEED_ATTENDANCE],
+    trainingPlans: [...SEED_TRAINING_PLANS],
+    planItems: [...SEED_PLAN_ITEMS],
+    assessments: [...SEED_ASSESSMENTS],
+    athleteFees: [...SEED_FEES],
+    feePayments: [...SEED_FEE_PAYMENTS],
+    invoices: [...SEED_INVOICES],
+    invites: [...SEED_INVITES],
+  };
+}
+
+class LocalMockStore {
+  private db: MockDatabase;
+  private currentUserId: string | null = "usr_admin";
+  private listeners: Set<() => void> = new Set();
+  private authListeners: Set<() => void> = new Set();
+
+  constructor() {
+    this.db = this.loadDb();
+    if (typeof window !== "undefined") {
+      const savedPersona = window.localStorage.getItem(PERSONA_KEY);
+      if (savedPersona === "null") {
+        this.currentUserId = null;
+      } else if (savedPersona) {
+        this.currentUserId = savedPersona;
+      }
+    }
+  }
+
+  private loadDb(): MockDatabase {
+    if (typeof window === "undefined") return getInitialDb();
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        const initial = getInitialDb();
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+        return initial;
+      }
+      return JSON.parse(raw);
+    } catch {
+      return getInitialDb();
+    }
+  }
+
+  private saveDb(): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.db));
+    } catch (e) {
+      console.error("Failed to save mock db to localStorage", e);
+    }
+  }
+
+  public resetToDefault(): void {
+    this.db = getInitialDb();
+    this.currentUserId = "usr_admin";
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.db));
+      window.localStorage.setItem(PERSONA_KEY, "usr_admin");
+    }
+    this.notifyAll();
+    this.notifyAuth();
+  }
+
+  public subscribe(cb: () => void): () => void {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
+  }
+
+  public subscribeAuth(cb: () => void): () => void {
+    this.authListeners.add(cb);
+    return () => this.authListeners.delete(cb);
+  }
+
+  private notifyAll(): void {
+    for (const cb of this.listeners) {
+      try {
+        cb();
+      } catch (e) {
+        console.error("Subscriber notification error", e);
+      }
+    }
+  }
+
+  private notifyAuth(): void {
+    for (const cb of this.authListeners) {
+      try {
+        cb();
+      } catch (e) {
+        console.error("Auth subscriber notification error", e);
+      }
+    }
+  }
+
+  public getCurrentUser(): MockUser | null {
+    if (!this.currentUserId) return null;
+    return this.db.users.find((u) => u._id === this.currentUserId) ?? null;
+  }
+
+  public getAllUsers(): MockUser[] {
+    return this.db.users;
+  }
+
+  public setPersona(userId: string | null): void {
+    this.currentUserId = userId;
+    if (typeof window !== "undefined") {
+      if (userId === null) {
+        window.localStorage.setItem(PERSONA_KEY, "null");
+      } else {
+        window.localStorage.setItem(PERSONA_KEY, userId);
+      }
+    }
+    this.notifyAll();
+    this.notifyAuth();
+  }
+
+  public isAuthenticated(): boolean {
+    return this.currentUserId !== null;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Query Execution
+  // ─────────────────────────────────────────────────────────────────────────────
+  public evaluateQuery(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): unknown {
+    const user = this.getCurrentUser();
+    const academyId = user?.academyId;
+
+    switch (name) {
+      case "users:getCurrentUser":
+        return user;
+
+      case "users:listAcademyMembers": {
+        if (!academyId) return [];
+        return this.db.users.filter((u) => u.academyId === academyId);
+      }
+
+      case "dashboard:getDashboardData": {
+        if (!user) return null;
+
+        if (user.role === "platform_admin") {
+          return {
+            role: "platform_admin" as const,
+            academyCount: this.db.academies.length,
+            userCount: this.db.users.filter((u) => u.role !== undefined).length,
+            academies: this.db.academies.slice(0, 8).map((a) => ({
+              _id: a._id,
+              name: a.name,
+              slug: a.slug,
+              status: a.status,
+              createdAt: a.createdAt,
+            })),
+          };
+        }
+
+        if (!academyId) {
+          return {
+            role: (user.role ?? "athlete") as string,
+            noAcademy: true as const,
+          };
+        }
+
+        if (
+          user.role === "academy_admin" ||
+          user.role === "coach" ||
+          user.role === "accounting"
+        ) {
+          const athletes = this.db.athletes.filter(
+            (a) => a.academyId === academyId && a.status === "active",
+          );
+          const teams = this.db.teams.filter((t) => t.academyId === academyId);
+          const allSessions = this.db.trainingSessions
+            .filter((s) => s.academyId === academyId)
+            .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+          const allPlans = this.db.trainingPlans.filter(
+            (p) => p.academyId === academyId,
+          );
+
+          const nowIso = new Date().toISOString();
+          const upcomingSessions = allSessions
+            .filter((s) => s.startsAt >= nowIso)
+            .slice(0, 8);
+          const activePlanCount = allPlans.filter(
+            (p) => p.status === "active",
+          ).length;
+
+          const teamMemberCounts = new Map<string, number>();
+          for (const team of teams) {
+            const count = this.db.teamMembers.filter(
+              (m) => m.teamId === team._id,
+            ).length;
+            teamMemberCounts.set(team._id, count);
+          }
+
+          const athleteMap = new Map(athletes.map((a) => [a._id, a]));
+          const recentAssessments = this.db.assessments
+            .filter((ass) => ass.academyId === academyId)
+            .sort((a, b) => b.assessedOn.localeCompare(a.assessedOn))
+            .slice(0, 6)
+            .map((r) => {
+              const a = athleteMap.get(r.athleteId);
+              return {
+                _id: r._id,
+                metric: r.metric,
+                value: r.value,
+                unit: r.unit,
+                assessedOn: r.assessedOn,
+                athleteName: a ? `${a.firstName} ${a.lastName}` : "Unknown",
+                athleteId: r.athleteId,
+              };
+            });
+
+          return {
+            role: user.role,
+            athleteCount: athletes.length,
+            teamCount: teams.length,
+            upcomingSessionCount: upcomingSessions.length,
+            activePlanCount,
+            upcomingSessions: upcomingSessions.map((s) => ({
+              _id: s._id,
+              title: s.title,
+              startsAt: s.startsAt,
+              durationMinutes: s.durationMinutes,
+              location: s.location,
+              teamName:
+                teams.find((t) => t._id === s.teamId)?.name ?? "Unknown team",
+            })),
+            recentAssessments,
+            teams: teams.slice(0, 5).map((t) => ({
+              _id: t._id,
+              name: t.name,
+              sport: t.sport,
+              memberCount: teamMemberCounts.get(t._id) ?? 0,
+            })),
+          };
+        }
+
+        // Athlete role
+        const athlete = this.db.athletes.find(
+          (a) =>
+            a.userId === user._id || (user.email && a.email === user.email),
+        );
+        if (!athlete) {
+          return { role: "athlete" as const, noAthleteRecord: true as const };
+        }
+
+        const memberships = this.db.teamMembers.filter(
+          (m) => m.athleteId === athlete._id,
+        );
+        const myTeams = memberships
+          .map((m) => this.db.teams.find((t) => t._id === m.teamId))
+          .filter(Boolean) as MockTeam[];
+
+        const teamIds = new Set(myTeams.map((t) => t._id));
+        const allMySessions = this.db.trainingSessions.filter((s) =>
+          teamIds.has(s.teamId),
+        );
+        const nowIso = new Date().toISOString();
+        const upcomingSessions = allMySessions
+          .filter((s) => s.startsAt >= nowIso)
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+          .slice(0, 8);
+
+        const myPlans = this.db.trainingPlans.filter(
+          (p) => p.athleteId === athlete._id,
+        );
+        const activePlans = myPlans.filter((p) => p.status === "active");
+
+        const recentAssessments = this.db.assessments
+          .filter((ass) => ass.athleteId === athlete._id)
+          .sort((a, b) => b.assessedOn.localeCompare(a.assessedOn))
+          .slice(0, 6);
+
+        return {
+          role: "athlete" as const,
+          athleteId: athlete._id,
+          athleteName: `${athlete.firstName} ${athlete.lastName}`,
+          sport: athlete.sport,
+          teamCount: myTeams.length,
+          upcomingSessionCount: upcomingSessions.length,
+          activePlanCount: activePlans.length,
+          upcomingSessions: upcomingSessions.map((s) => ({
+            _id: s._id,
+            title: s.title,
+            startsAt: s.startsAt,
+            durationMinutes: s.durationMinutes,
+            location: s.location,
+            teamName: myTeams.find((t) => t._id === s.teamId)?.name ?? "Team",
+          })),
+          activePlans: activePlans.slice(0, 4).map((p) => ({
+            _id: p._id,
+            title: p.title,
+            startDate: p.startDate,
+            endDate: p.endDate,
+          })),
+          recentAssessments: recentAssessments.map((a) => ({
+            _id: a._id,
+            metric: a.metric,
+            value: a.value,
+            unit: a.unit,
+            assessedOn: a.assessedOn,
+          })),
+        };
+      }
+
+      case "trainingSessions:listSessionsForAcademy": {
+        if (!academyId) return [];
+        const sessions = this.db.trainingSessions
+          .filter((s) => s.academyId === academyId)
+          .sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+
+        const teamMap = new Map(this.db.teams.map((t) => [t._id, t.name]));
+        const withTeam = sessions.map((s) => ({
+          ...s,
+          teamName: teamMap.get(s.teamId) ?? "Unknown team",
+        }));
+
+        if (user?.role === "athlete") {
+          const athlete = this.db.athletes.find(
+            (a) =>
+              a.userId === user._id || (user.email && a.email === user.email),
+          );
+          if (!athlete) return [];
+          const teamIds = new Set(
+            this.db.teamMembers
+              .filter((m) => m.athleteId === athlete._id)
+              .map((m) => m.teamId),
+          );
+          return withTeam.filter((s) => teamIds.has(s.teamId));
+        }
+
+        return withTeam;
+      }
+
+      case "trainingSessions:listSessionsForTeam": {
+        const teamId = args.teamId as string;
+        return this.db.trainingSessions
+          .filter((s) => s.teamId === teamId)
+          .sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+      }
+
+      case "trainingSessions:getSessionWithAttendance": {
+        const sessionId = args.sessionId as string;
+        const session = this.db.trainingSessions.find(
+          (s) => s._id === sessionId,
+        );
+        if (!session) throw new Error("Session not found");
+
+        const teamMembers = this.db.teamMembers.filter(
+          (m) => m.teamId === session.teamId,
+        );
+        const athleteMap = new Map(this.db.athletes.map((a) => [a._id, a]));
+        const roster = teamMembers
+          .map((m) => athleteMap.get(m.athleteId))
+          .filter(Boolean);
+
+        const attendance = this.db.attendanceRecords.filter(
+          (att) => att.sessionId === sessionId,
+        );
+
+        return { session, roster, attendance };
+      }
+
+      case "trainingSessions:getAthleteAttendanceStats": {
+        const athleteId = args.athleteId as string;
+        const memberships = this.db.teamMembers.filter(
+          (m) => m.athleteId === athleteId,
+        );
+        const teamIds = new Set(memberships.map((m) => m.teamId));
+
+        const sessions = this.db.trainingSessions.filter((s) =>
+          teamIds.has(s.teamId),
+        );
+        const sessionIds = new Set(sessions.map((s) => s._id));
+
+        const records = this.db.attendanceRecords.filter(
+          (r) => r.athleteId === athleteId && sessionIds.has(r.sessionId),
+        );
+
+        const present = records.filter((r) => r.status === "present").length;
+        const late = records.filter((r) => r.status === "late").length;
+        const excused = records.filter((r) => r.status === "excused").length;
+        const absent = records.filter((r) => r.status === "absent").length;
+        const total = present + late + excused + absent;
+        const attended = present + late;
+        const rate = total > 0 ? Math.round((attended / total) * 100) : 0;
+
+        return {
+          totalSessions: total,
+          present,
+          late,
+          excused,
+          absent,
+          attendanceRate: rate,
+        };
+      }
+
+      case "trainingSessions:getAcademyAttendanceLeaderboard": {
+        if (!academyId) return { top: [], bottom: [] };
+        const athletes = this.db.athletes.filter(
+          (a) => a.academyId === academyId && a.status === "active",
+        );
+        const top = athletes.slice(0, 3).map((a, idx) => ({
+          athleteId: a._id,
+          name: `${a.firstName} ${a.lastName}`,
+          rate: 95 - idx * 4,
+          total: 12 + idx * 2,
+        }));
+        const bottom = athletes.slice(3, 5).map((a, idx) => ({
+          athleteId: a._id,
+          name: `${a.firstName} ${a.lastName}`,
+          rate: 68 + idx * 5,
+          total: 10 + idx,
+        }));
+        return { top, bottom };
+      }
+
+      case "teams:listTeams": {
+        if (!academyId) return [];
+        return this.db.teams.filter((t) => t.academyId === academyId);
+      }
+
+      case "teams:getTeam": {
+        const teamId = args.teamId as string;
+        const team = this.db.teams.find((t) => t._id === teamId);
+        if (!team) throw new Error("Team not found");
+
+        const members = this.db.teamMembers.filter((m) => m.teamId === teamId);
+        const athleteMap = new Map(this.db.athletes.map((a) => [a._id, a]));
+        const roster = members
+          .map((m) => athleteMap.get(m.athleteId))
+          .filter(Boolean);
+
+        return { team, roster };
+      }
+
+      case "athletes:listAthletes": {
+        if (!academyId) return [];
+        let list = this.db.athletes.filter((a) => a.academyId === academyId);
+        if (
+          args.search &&
+          typeof args.search === "string" &&
+          args.search.trim()
+        ) {
+          const q = args.search.toLowerCase();
+          list = list.filter(
+            (a) =>
+              a.firstName.toLowerCase().includes(q) ||
+              a.lastName.toLowerCase().includes(q) ||
+              (a.email && a.email.toLowerCase().includes(q)) ||
+              (a.sport && a.sport.toLowerCase().includes(q)),
+          );
+        }
+        return list;
+      }
+
+      case "athletes:getAthlete": {
+        const athleteId = args.athleteId as string;
+        const athlete = this.db.athletes.find((a) => a._id === athleteId);
+        if (!athlete) throw new Error("Athlete not found");
+        return athlete;
+      }
+
+      case "athletes:getAthleteByUserId": {
+        if (!user) return null;
+        return (
+          this.db.athletes.find(
+            (a) =>
+              a.userId === user._id || (user.email && a.email === user.email),
+          ) ?? null
+        );
+      }
+
+      case "trainingPlans:listPlansForAthlete": {
+        const athleteId = args.athleteId as string;
+        return this.db.trainingPlans.filter((p) => p.athleteId === athleteId);
+      }
+
+      case "trainingPlans:getPlan": {
+        const planId = args.planId as string;
+        const plan = this.db.trainingPlans.find((p) => p._id === planId);
+        if (!plan) throw new Error("Plan not found");
+        const athlete =
+          this.db.athletes.find((a) => a._id === plan.athleteId) ?? null;
+        const items = this.db.planItems
+          .filter((item) => item.planId === planId)
+          .sort((a, b) => a.order - b.order);
+        return { plan, athlete, items };
+      }
+
+      case "assessments:listAssessmentsForAthlete": {
+        const athleteId = args.athleteId as string;
+        return this.db.assessments
+          .filter((ass) => ass.athleteId === athleteId)
+          .sort((a, b) => b.assessedOn.localeCompare(a.assessedOn));
+      }
+
+      case "fees:listFeesForAcademy": {
+        if (!academyId) return [];
+        let fees = this.db.athleteFees.filter((f) => f.academyId === academyId);
+        if (args.status) {
+          fees = fees.filter((f) => f.status === args.status);
+        }
+
+        const athleteMap = new Map(this.db.athletes.map((a) => [a._id, a]));
+        return fees.map((fee) => {
+          const athlete = athleteMap.get(fee.athleteId);
+          const payments = this.db.feePayments.filter(
+            (p) => p.feeId === fee._id,
+          );
+          const totalPaid = payments.reduce((s, p) => s + p.amountPaid, 0);
+          return {
+            ...fee,
+            athleteName: athlete
+              ? `${athlete.firstName} ${athlete.lastName}`
+              : "Unknown",
+            athleteSport: athlete?.sport,
+            totalPaid,
+            remainingBalance: Math.max(0, fee.amountDue - totalPaid),
+          };
+        });
+      }
+
+      case "fees:listFeesForAthlete": {
+        const athleteId = args.athleteId as string;
+        const fees = this.db.athleteFees.filter(
+          (f) => f.athleteId === athleteId,
+        );
+        return fees.map((fee) => {
+          const payments = this.db.feePayments
+            .filter((p) => p.feeId === fee._id)
+            .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+          const totalPaid = payments.reduce((s, p) => s + p.amountPaid, 0);
+          return {
+            ...fee,
+            payments,
+            totalPaid,
+            remainingBalance: Math.max(0, fee.amountDue - totalPaid),
+          };
+        });
+      }
+
+      case "invoices:listInvoicesForAcademy": {
+        if (!academyId) return [];
+        let invoices = this.db.invoices.filter(
+          (i) => i.academyId === academyId,
+        );
+        if (args.status) {
+          invoices = invoices.filter((i) => i.status === args.status);
+        }
+
+        const athleteMap = new Map(this.db.athletes.map((a) => [a._id, a]));
+        return invoices.map((inv) => ({
+          ...inv,
+          athleteName: inv.athleteId
+            ? athleteMap.get(inv.athleteId)
+              ? `${athleteMap.get(inv.athleteId)!.firstName} ${athleteMap.get(inv.athleteId)!.lastName}`
+              : "Unknown"
+            : null,
+        }));
+      }
+
+      case "invoices:adminBillingOverview": {
+        const allInvoices = this.db.invoices;
+        const academyIds = [...new Set(allInvoices.map((i) => i.academyId))];
+        const academyMap = new Map(this.db.academies.map((a) => [a._id, a]));
+
+        const academies = academyIds.map((id) => {
+          const academy = academyMap.get(id);
+          const invs = allInvoices.filter((i) => i.academyId === id);
+          const totalAmount = invs.reduce((s, i) => s + i.amount, 0);
+          return {
+            academyId: id,
+            academyName: academy?.name ?? "Unknown",
+            totalInvoices: invs.length,
+            totalAmount,
+            currency: invs[0]?.currency ?? "USD",
+            statusCounts: {
+              draft: invs.filter((i) => i.status === "draft").length,
+              sent: invs.filter((i) => i.status === "sent").length,
+              paid: invs.filter((i) => i.status === "paid").length,
+              overdue: invs.filter((i) => i.status === "overdue").length,
+            },
+          };
+        });
+
+        const grandTotal = allInvoices.reduce((s, i) => s + i.amount, 0);
+        const paidTotal = allInvoices
+          .filter((i) => i.status === "paid")
+          .reduce((s, i) => s + i.amount, 0);
+
+        return {
+          academies,
+          grandTotal,
+          paidTotal,
+          currencyTotals: {
+            USD: { invoiced: grandTotal, paid: paidTotal },
+          },
+          totalInvoices: allInvoices.length,
+        };
+      }
+
+      case "academies:listAcademies": {
+        return this.db.academies;
+      }
+
+      case "invites:listInvites": {
+        if (!academyId) return [];
+        return this.db.invites.filter((inv) => inv.academyId === academyId);
+      }
+
+      case "videoAnalyses:listAnalysesForAthlete": {
+        return [];
+      }
+
+      default:
+        console.warn(`[LocalMock] Unhandled query: ${name}`);
+        return undefined;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Mutation Execution
+  // ─────────────────────────────────────────────────────────────────────────────
+  public async executeMutation(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<unknown> {
+    const user = this.getCurrentUser();
+    const academyId = user?.academyId;
+    const nowIso = new Date().toISOString();
+
+    switch (name) {
+      case "users:updateCurrentUser": {
+        return user?._id ?? "usr_admin";
+      }
+
+      case "users:updateMemberRole": {
+        const targetUserId = args.targetUserId as string;
+        const newRole = args.newRole as MockUser["role"];
+        const target = this.db.users.find((u) => u._id === targetUserId);
+        if (target) {
+          target.role = newRole;
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
+      }
+
+      case "users:removeAcademyMember": {
+        const targetUserId = args.targetUserId as string;
+        const target = this.db.users.find((u) => u._id === targetUserId);
+        if (target) {
+          target.academyId = undefined;
+          target.role = undefined;
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
+      }
+
+      case "trainingSessions:createSession": {
+        if (!academyId) throw new Error("No academy");
+        const newSession: MockTrainingSession = {
+          _id: `sess_${Date.now()}`,
+          academyId,
+          teamId: args.teamId as string,
+          title: (args.title as string).trim(),
+          startsAt: args.startsAt as string,
+          durationMinutes: Number(args.durationMinutes),
+          location: args.location as string | undefined,
+          notes: args.notes as string | undefined,
+          createdBy: user?._id,
+          createdAt: nowIso,
+        };
+        this.db.trainingSessions.unshift(newSession);
+        this.saveDb();
+        this.notifyAll();
+        return newSession._id;
+      }
+
+      case "trainingSessions:updateSession": {
+        const sessionId = args.sessionId as string;
+        const session = this.db.trainingSessions.find(
+          (s) => s._id === sessionId,
+        );
+        if (!session) throw new Error("Session not found");
+        session.title = (args.title as string).trim();
+        session.startsAt = args.startsAt as string;
+        session.durationMinutes = Number(args.durationMinutes);
+        session.location = args.location as string | undefined;
+        session.notes = args.notes as string | undefined;
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "trainingSessions:deleteSession": {
+        const sessionId = args.sessionId as string;
+        this.db.trainingSessions = this.db.trainingSessions.filter(
+          (s) => s._id !== sessionId,
+        );
+        this.db.attendanceRecords = this.db.attendanceRecords.filter(
+          (a) => a.sessionId !== sessionId,
+        );
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "trainingSessions:setAttendance": {
+        const sessionId = args.sessionId as string;
+        const athleteId = args.athleteId as string;
+        const status = args.status as MockAttendanceRecord["status"];
+
+        const existing = this.db.attendanceRecords.find(
+          (a) => a.sessionId === sessionId && a.athleteId === athleteId,
+        );
+        if (existing) {
+          existing.status = status;
+          existing.markedAt = nowIso;
+        } else {
+          this.db.attendanceRecords.push({
+            _id: `att_${Date.now()}`,
+            sessionId,
+            athleteId,
+            status,
+            markedAt: nowIso,
+            markedBy: user?._id ?? "usr_admin",
+          });
+        }
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "teams:createTeam": {
+        if (!academyId) throw new Error("No academy");
+        const newTeam: MockTeam = {
+          _id: `team_${Date.now()}`,
+          academyId,
+          name: (args.name as string).trim(),
+          sport: args.sport as string | undefined,
+          createdBy: user?._id,
+          createdAt: nowIso,
+        };
+        this.db.teams.unshift(newTeam);
+        this.saveDb();
+        this.notifyAll();
+        return newTeam._id;
+      }
+
+      case "teams:updateTeam": {
+        const teamId = args.teamId as string;
+        const team = this.db.teams.find((t) => t._id === teamId);
+        if (!team) throw new Error("Team not found");
+        team.name = (args.name as string).trim();
+        team.sport = args.sport as string | undefined;
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "teams:deleteTeam": {
+        const teamId = args.teamId as string;
+        this.db.teams = this.db.teams.filter((t) => t._id !== teamId);
+        this.db.teamMembers = this.db.teamMembers.filter(
+          (m) => m.teamId !== teamId,
+        );
+        const sessionIds = new Set(
+          this.db.trainingSessions
+            .filter((s) => s.teamId === teamId)
+            .map((s) => s._id),
+        );
+        this.db.trainingSessions = this.db.trainingSessions.filter(
+          (s) => s.teamId !== teamId,
+        );
+        this.db.attendanceRecords = this.db.attendanceRecords.filter(
+          (a) => !sessionIds.has(a.sessionId),
+        );
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "teams:setTeamRoster": {
+        const teamId = args.teamId as string;
+        const athleteIds = (args.athleteIds as string[]) ?? [];
+        this.db.teamMembers = this.db.teamMembers.filter(
+          (m) => m.teamId !== teamId,
+        );
+        for (const athId of athleteIds) {
+          this.db.teamMembers.push({
+            _id: `tm_${Date.now()}_${athId}`,
+            teamId,
+            athleteId: athId,
+            joinedAt: nowIso,
+          });
+        }
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "athletes:createAthlete": {
+        if (!academyId) throw new Error("No academy");
+        const newAthlete: MockAthlete = {
+          _id: `ath_${Date.now()}`,
+          academyId,
+          firstName: (args.firstName as string).trim(),
+          lastName: (args.lastName as string).trim(),
+          dateOfBirth: args.dateOfBirth as string | undefined,
+          gender: args.gender as MockAthlete["gender"],
+          sport: args.sport as string | undefined,
+          heightCm: args.heightCm ? Number(args.heightCm) : undefined,
+          weightKg: args.weightKg ? Number(args.weightKg) : undefined,
+          email: args.email as string | undefined,
+          phone: args.phone as string | undefined,
+          guardianName: args.guardianName as string | undefined,
+          guardianPhone: args.guardianPhone as string | undefined,
+          notes: args.notes as string | undefined,
+          status: "active",
+          createdAt: nowIso,
+        };
+        this.db.athletes.unshift(newAthlete);
+        this.saveDb();
+        this.notifyAll();
+        return newAthlete._id;
+      }
+
+      case "athletes:updateAthlete": {
+        const athleteId = args.athleteId as string;
+        const athlete = this.db.athletes.find((a) => a._id === athleteId);
+        if (!athlete) throw new Error("Athlete not found");
+        Object.assign(athlete, {
+          firstName: (args.firstName as string).trim(),
+          lastName: (args.lastName as string).trim(),
+          dateOfBirth: args.dateOfBirth as string | undefined,
+          gender: args.gender as MockAthlete["gender"],
+          sport: args.sport as string | undefined,
+          heightCm: args.heightCm ? Number(args.heightCm) : undefined,
+          weightKg: args.weightKg ? Number(args.weightKg) : undefined,
+          email: args.email as string | undefined,
+          phone: args.phone as string | undefined,
+          guardianName: args.guardianName as string | undefined,
+          guardianPhone: args.guardianPhone as string | undefined,
+          notes: args.notes as string | undefined,
+        });
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "athletes:setAthleteStatus": {
+        const athleteId = args.athleteId as string;
+        const athlete = this.db.athletes.find((a) => a._id === athleteId);
+        if (athlete) {
+          athlete.status = args.status as "active" | "inactive";
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
+      }
+
+      case "athletes:bulkImportAthletes": {
+        if (!academyId) throw new Error("No academy");
+        const list = (args.athletes as Partial<MockAthlete>[]) ?? [];
+        let added = 0;
+        for (const item of list) {
+          if (!item.firstName?.trim() || !item.lastName?.trim()) continue;
+          this.db.athletes.push({
+            _id: `ath_${Date.now()}_${added}`,
+            academyId,
+            firstName: item.firstName.trim(),
+            lastName: item.lastName.trim(),
+            dateOfBirth: item.dateOfBirth,
+            gender: item.gender,
+            sport: item.sport,
+            email: item.email,
+            phone: item.phone,
+            status: "active",
+            createdAt: nowIso,
+          });
+          added++;
+        }
+        this.saveDb();
+        this.notifyAll();
+        return { added, skipped: list.length - added, errors: [] };
+      }
+
+      case "athletes:linkAthleteToUser": {
+        const athleteId = args.athleteId as string;
+        const email = (args.email as string).trim().toLowerCase();
+        const athlete = this.db.athletes.find((a) => a._id === athleteId);
+        if (!athlete) throw new Error("Athlete not found");
+
+        const targetUser = this.db.users.find(
+          (u) => u.email.toLowerCase() === email,
+        );
+        if (!targetUser) {
+          throw new Error(
+            "No registered user account found with that email address",
+          );
+        }
+        athlete.userId = targetUser._id;
+        athlete.email = targetUser.email;
+        targetUser.role = "athlete";
+        targetUser.academyId = athlete.academyId;
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "athletes:unlinkAthleteUser": {
+        const athleteId = args.athleteId as string;
+        const athlete = this.db.athletes.find((a) => a._id === athleteId);
+        if (athlete) {
+          athlete.userId = undefined;
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
+      }
+
+      case "trainingPlans:createPlan": {
+        if (!academyId) throw new Error("No academy");
+        const newPlan: MockTrainingPlan = {
+          _id: `plan_${Date.now()}`,
+          academyId,
+          athleteId: args.athleteId as string,
+          title: (args.title as string).trim(),
+          description: args.description as string | undefined,
+          startDate: args.startDate as string | undefined,
+          endDate: args.endDate as string | undefined,
+          status: "active",
+          createdBy: user?._id ?? "usr_coach",
+          createdAt: nowIso,
+        };
+        this.db.trainingPlans.unshift(newPlan);
+        this.saveDb();
+        this.notifyAll();
+        return newPlan._id;
+      }
+
+      case "trainingPlans:updatePlan": {
+        const planId = args.planId as string;
+        const plan = this.db.trainingPlans.find((p) => p._id === planId);
+        if (!plan) throw new Error("Plan not found");
+        plan.title = (args.title as string).trim();
+        plan.description = args.description as string | undefined;
+        plan.startDate = args.startDate as string | undefined;
+        plan.endDate = args.endDate as string | undefined;
+        if (args.status)
+          plan.status = args.status as MockTrainingPlan["status"];
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "trainingPlans:deletePlan": {
+        const planId = args.planId as string;
+        this.db.trainingPlans = this.db.trainingPlans.filter(
+          (p) => p._id !== planId,
+        );
+        this.db.planItems = this.db.planItems.filter(
+          (i) => i.planId !== planId,
+        );
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "trainingPlans:addPlanItem": {
+        const planId = args.planId as string;
+        const existingCount = this.db.planItems.filter(
+          (i) => i.planId === planId,
+        ).length;
+        const newItem: MockPlanItem = {
+          _id: `pitem_${Date.now()}`,
+          planId,
+          exercise: (args.exercise as string).trim(),
+          target: args.target as string | undefined,
+          notes: args.notes as string | undefined,
+          order: existingCount + 1,
+          completed: false,
+        };
+        this.db.planItems.push(newItem);
+        this.saveDb();
+        this.notifyAll();
+        return newItem._id;
+      }
+
+      case "trainingPlans:updatePlanItem": {
+        const itemId = args.itemId as string;
+        const item = this.db.planItems.find((i) => i._id === itemId);
+        if (!item) throw new Error("Plan item not found");
+        if (args.exercise !== undefined)
+          item.exercise = (args.exercise as string).trim();
+        if (args.target !== undefined) item.target = args.target as string;
+        if (args.notes !== undefined) item.notes = args.notes as string;
+        if (args.completed !== undefined)
+          item.completed = Boolean(args.completed);
+        if (args.result !== undefined) item.result = args.result as string;
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "trainingPlans:deletePlanItem": {
+        const itemId = args.itemId as string;
+        this.db.planItems = this.db.planItems.filter((i) => i._id !== itemId);
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "assessments:addAssessment": {
+        if (!academyId) throw new Error("No academy");
+        const newAssessment: MockAssessment = {
+          _id: `ass_${Date.now()}`,
+          academyId,
+          athleteId: args.athleteId as string,
+          metric: (args.metric as string).trim(),
+          value: Number(args.value),
+          unit: (args.unit as string).trim(),
+          assessedOn: args.assessedOn as string,
+          notes: args.notes as string | undefined,
+          conductedBy: user?.name ?? "Staff",
+          createdAt: nowIso,
+        };
+        this.db.assessments.unshift(newAssessment);
+        this.saveDb();
+        this.notifyAll();
+        return newAssessment._id;
+      }
+
+      case "assessments:deleteAssessment": {
+        const assessmentId = args.assessmentId as string;
+        this.db.assessments = this.db.assessments.filter(
+          (a) => a._id !== assessmentId,
+        );
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "fees:createFee": {
+        if (!academyId) throw new Error("No academy");
+        const newFee: MockAthleteFee = {
+          _id: `fee_${Date.now()}`,
+          academyId,
+          athleteId: args.athleteId as string,
+          label: (args.label as string).trim(),
+          amountDue: Number(args.amountDue),
+          currency: (args.currency as string) || "USD",
+          dueDate: args.dueDate as string,
+          status: "unpaid",
+          notes: args.notes as string | undefined,
+          createdBy: user?._id ?? "usr_accounting",
+          createdAt: nowIso,
+        };
+        this.db.athleteFees.unshift(newFee);
+        this.saveDb();
+        this.notifyAll();
+        return newFee._id;
+      }
+
+      case "fees:recordPayment": {
+        const feeId = args.feeId as string;
+        const amountPaid = Number(args.amountPaid);
+        const fee = this.db.athleteFees.find((f) => f._id === feeId);
+        if (!fee) throw new Error("Fee not found");
+
+        this.db.feePayments.push({
+          _id: `pay_${Date.now()}`,
+          feeId,
+          amountPaid,
+          paidAt: nowIso,
+          recordedBy: user?._id ?? "usr_accounting",
+          notes: args.notes as string | undefined,
+        });
+
+        const allPayments = this.db.feePayments.filter(
+          (p) => p.feeId === feeId,
+        );
+        const totalPaid = allPayments.reduce((s, p) => s + p.amountPaid, 0);
+
+        fee.status = totalPaid >= fee.amountDue ? "paid" : "partially_paid";
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "fees:updateFeeStatus": {
+        const feeId = args.feeId as string;
+        const fee = this.db.athleteFees.find((f) => f._id === feeId);
+        if (fee) {
+          fee.status = args.status as MockAthleteFee["status"];
+          if (args.notes) fee.notes = args.notes as string;
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
+      }
+
+      case "fees:deleteFee": {
+        const feeId = args.feeId as string;
+        this.db.athleteFees = this.db.athleteFees.filter(
+          (f) => f._id !== feeId,
+        );
+        this.db.feePayments = this.db.feePayments.filter(
+          (p) => p.feeId !== feeId,
+        );
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "invoices:createInvoice": {
+        if (!academyId) throw new Error("No academy");
+        const academy = this.db.academies.find((a) => a._id === academyId);
+        const nextNum =
+          academy?.nextInvoiceNumber ?? this.db.invoices.length + 1;
+        if (academy) {
+          academy.nextInvoiceNumber = nextNum + 1;
+        }
+
+        const invoiceNumber = `INV-${String(nextNum).padStart(4, "0")}`;
+        const newInvoice: MockInvoice = {
+          _id: `inv_${Date.now()}`,
+          academyId,
+          athleteId: args.athleteId as string | undefined,
+          invoiceNumber,
+          description: (args.description as string).trim(),
+          amount: Number(args.amount),
+          currency: (args.currency as string) || "USD",
+          dueDate: args.dueDate as string,
+          status: "draft",
+          note: args.note as string | undefined,
+          issuedAt: nowIso,
+          createdBy: user?._id ?? "usr_accounting",
+        };
+        this.db.invoices.unshift(newInvoice);
+        this.saveDb();
+        this.notifyAll();
+        return newInvoice._id;
+      }
+
+      case "invoices:updateInvoiceStatus": {
+        const invoiceId = args.invoiceId as string;
+        const invoice = this.db.invoices.find((i) => i._id === invoiceId);
+        if (invoice) {
+          invoice.status = args.status as MockInvoice["status"];
+          if (args.status === "paid") {
+            invoice.paidAt = nowIso;
+          }
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
+      }
+
+      case "invoices:deleteInvoice": {
+        const invoiceId = args.invoiceId as string;
+        this.db.invoices = this.db.invoices.filter((i) => i._id !== invoiceId);
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "academies:createAcademy": {
+        const nameVal = (args.name as string).trim();
+        const slug = nameVal.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        const newAcad: MockAcademy = {
+          _id: `acad_${Date.now()}`,
+          name: nameVal,
+          slug,
+          status: "active",
+          nextInvoiceNumber: 1,
+          createdAt: nowIso,
+        };
+        this.db.academies.push(newAcad);
+        this.saveDb();
+        this.notifyAll();
+        return newAcad._id;
+      }
+
+      case "academies:setAcademyStatus": {
+        const academyIdArg = args.academyId as string;
+        const acad = this.db.academies.find((a) => a._id === academyIdArg);
+        if (acad) {
+          acad.status = args.status as MockAcademy["status"];
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
+      }
+
+      case "academies:deleteAcademy": {
+        const academyIdArg = args.academyId as string;
+        this.db.academies = this.db.academies.filter(
+          (a) => a._id !== academyIdArg,
+        );
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "invites:createInvite": {
+        if (!academyId) throw new Error("No academy");
+        const email = (args.email as string).trim().toLowerCase();
+        const role = args.role as MockInvite["role"];
+        const newInvite: MockInvite = {
+          _id: `inv_${Date.now()}`,
+          academyId,
+          email,
+          role,
+          status: "pending",
+          invitedBy: user?._id ?? "usr_admin",
+          expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+          createdAt: nowIso,
+        };
+        this.db.invites.unshift(newInvite);
+        this.saveDb();
+        this.notifyAll();
+        return newInvite._id;
+      }
+
+      case "invites:cancelInvite": {
+        const inviteId = args.inviteId as string;
+        const invite = this.db.invites.find((i) => i._id === inviteId);
+        if (invite) {
+          invite.status = "cancelled";
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
+      }
+
+      case "videoAnalysis:generateUploadUrl": {
+        return "https://mock.upload.peakform.local/video";
+      }
+
+      case "videoAnalysis:createAnalysis": {
+        return `analysis_${Date.now()}`;
+      }
+
+      default:
+        console.warn(`[LocalMock] Unhandled mutation: ${name}`);
+        return null;
+    }
+  }
+}
+
+export const localMockStore = new LocalMockStore();
