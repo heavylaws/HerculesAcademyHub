@@ -220,7 +220,7 @@ function PlatformAdminDashboard({ data }: { data: PlatformData }) {
 // ─── Academy Admin / Coach Dashboard ─────────────────────────────────────────
 
 type AdminCoachData = {
-  role: "academy_admin" | "coach";
+  role: "academy_admin" | "coach" | "accounting";
   athleteCount: number;
   teamCount: number;
   upcomingSessionCount: number;
@@ -259,13 +259,13 @@ function AdminCoachDashboard({ data }: { data: AdminCoachData }) {
           label="Active athletes"
           value={data.athleteCount}
           icon={UserRound}
-          to="/athletes"
+          to={data.role === "accounting" ? undefined : "/athletes"}
         />
         <StatCard
           label="Teams"
           value={data.teamCount}
           icon={Shield}
-          to="/teams"
+          to={data.role === "accounting" ? undefined : "/teams"}
         />
         <StatCard
           label="Upcoming sessions"
@@ -819,7 +819,11 @@ export default function Dashboard() {
     if (!data || !("role" in data)) return "Loading your workspace…";
     if (data.role === "platform_admin")
       return "Platform overview — all academies.";
-    if (data.role === "academy_admin" || data.role === "coach")
+    if (
+      data.role === "academy_admin" ||
+      data.role === "coach" ||
+      data.role === "accounting"
+    )
       return "Here's a snapshot of your academy's activity.";
     if (data.role === "athlete") {
       const d = data as AthleteData;
@@ -866,7 +870,9 @@ export default function Dashboard() {
         </div>
       ) : data.role === "platform_admin" ? (
         <PlatformAdminDashboard data={data as PlatformData} />
-      ) : data.role === "academy_admin" || data.role === "coach" ? (
+      ) : data.role === "academy_admin" ||
+        data.role === "coach" ||
+        data.role === "accounting" ? (
         <AdminCoachDashboard data={data as AdminCoachData} />
       ) : data.role === "athlete" && "athleteId" in data ? (
         <AthleteDashboard data={data as AthleteData} />

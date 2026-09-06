@@ -15,8 +15,10 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Mail,
 } from "lucide-react";
 
+import { Input } from "@/components/ui/input.tsx";
 import { RoleTestRunner } from "@/components/ui/role-test-runner.tsx";
 
 const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
@@ -24,6 +26,7 @@ const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
 interface PersonaOption {
   id: string;
   name: string;
+  email: string;
   role: string;
   label: string;
   icon: typeof ShieldCheck;
@@ -34,6 +37,7 @@ const PERSONAS: PersonaOption[] = [
   {
     id: "usr_admin",
     name: "Jane Sterling",
+    email: "admin@hercules.com",
     role: "academy_admin",
     label: "Academy Admin",
     icon: ShieldCheck,
@@ -42,6 +46,7 @@ const PERSONAS: PersonaOption[] = [
   {
     id: "usr_coach",
     name: "Dave Miller",
+    email: "dave@hercules.com",
     role: "coach",
     label: "Coach",
     icon: Timer,
@@ -50,14 +55,25 @@ const PERSONAS: PersonaOption[] = [
   {
     id: "usr_athlete",
     name: "Marcus Vance",
+    email: "marcus@hercules.com",
     role: "athlete",
-    label: "Athlete",
+    label: "Athlete (Track & Field)",
     icon: User,
     color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   },
   {
+    id: "usr_athlete_elena",
+    name: "Elena Rostova",
+    email: "elena@hercules.com",
+    role: "athlete",
+    label: "Athlete (Gymnastics)",
+    icon: User,
+    color: "bg-teal-500/10 text-teal-500 border-teal-500/20",
+  },
+  {
     id: "usr_accounting",
     name: "Sarah Lin",
+    email: "finance@hercules.com",
     role: "accounting",
     label: "Accounting",
     icon: DollarSign,
@@ -66,6 +82,7 @@ const PERSONAS: PersonaOption[] = [
   {
     id: "usr_platform",
     name: "Alex Woods",
+    email: "super@peakform.io",
     role: "platform_admin",
     label: "Platform Admin",
     icon: Crown,
@@ -76,6 +93,7 @@ const PERSONAS: PersonaOption[] = [
 export function DevPersonaSwitcher() {
   const [expanded, setExpanded] = useState(false);
   const [testSuiteOpen, setTestSuiteOpen] = useState(false);
+  const [customEmail, setCustomEmail] = useState("");
   const [currentUser, setCurrentUser] = useState(() =>
     localMockStore.getCurrentUser(),
   );
@@ -151,23 +169,29 @@ export function DevPersonaSwitcher() {
                 >
                   <div className="flex items-center gap-2.5">
                     <Icon className="size-4 shrink-0" />
-                    <div>
-                      <div className="font-semibold leading-tight">
-                        {persona.name}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold leading-tight flex items-center justify-between gap-1.5">
+                        <span className="truncate">{persona.name}</span>
+                        <Badge
+                          variant={isSelected ? "outline" : "secondary"}
+                          className="text-[9px] px-1 py-0 font-normal shrink-0"
+                        >
+                          {persona.label}
+                        </Badge>
                       </div>
                       <div
-                        className={`text-[11px] ${
+                        className={`text-[10px] font-mono truncate mt-0.5 ${
                           isSelected
-                            ? "text-primary-foreground/80"
+                            ? "text-primary-foreground/90"
                             : "text-muted-foreground"
                         }`}
                       >
-                        {persona.label}
+                        {persona.email}
                       </div>
                     </div>
                   </div>
                   {isSelected && (
-                    <span className="text-[10px] font-mono uppercase bg-primary-foreground/20 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-mono uppercase bg-primary-foreground/20 px-1.5 py-0.5 rounded shrink-0">
                       Active
                     </span>
                   )}
@@ -175,6 +199,36 @@ export function DevPersonaSwitcher() {
               );
             })}
           </div>
+
+          {/* Quick Manual Login by Any Email */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!customEmail.trim()) return;
+              const u = localMockStore.setPersonaByEmail(customEmail.trim());
+              toast.success(
+                `Signed in as ${u.name} (${u.role ? u.role.replace("_", " ") : "Pending Member"})`,
+              );
+              setCustomEmail("");
+            }}
+            className="flex gap-1.5 pt-1"
+          >
+            <Input
+              value={customEmail}
+              onChange={(e) => setCustomEmail(e.target.value)}
+              placeholder="Sign in with any email..."
+              className="h-8 text-xs font-mono bg-muted/30"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs shrink-0 gap-1"
+            >
+              <Mail className="size-3" />
+              Login
+            </Button>
+          </form>
 
           {/* Interactive Role Test Runner Trigger */}
           <div className="pt-1">

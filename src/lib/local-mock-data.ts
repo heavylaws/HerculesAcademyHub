@@ -256,6 +256,14 @@ export const SEED_USERS: MockUser[] = [
     role: "platform_admin",
     tokenIdentifier: "mock|user_platform",
   },
+  {
+    _id: "usr_athlete_elena",
+    name: "Elena Rostova",
+    email: "elena@hercules.com",
+    role: "athlete",
+    academyId: "acad_hercules",
+    tokenIdentifier: "mock|user_athlete_elena",
+  },
 ];
 
 export const SEED_ATHLETES: MockAthlete[] = [
@@ -281,6 +289,7 @@ export const SEED_ATHLETES: MockAthlete[] = [
   {
     _id: "ath_elena",
     academyId: "acad_hercules",
+    userId: "usr_athlete_elena",
     firstName: "Elena",
     lastName: "Rostova",
     dateOfBirth: "2006-03-22",

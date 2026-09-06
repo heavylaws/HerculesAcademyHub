@@ -39,8 +39,12 @@ export const getDashboardData = query({
 
     const academyId = user.academyId;
 
-    // ── Academy Admin / Coach ─────────────────────────────────────────────────
-    if (user.role === "academy_admin" || user.role === "coach") {
+    // ── Academy Admin / Coach / Accounting ────────────────────────────────────
+    if (
+      user.role === "academy_admin" ||
+      user.role === "coach" ||
+      user.role === "accounting"
+    ) {
       const [athletes, teams, allSessions, allPlans] = await Promise.all([
         ctx.db
           .query("athletes")

@@ -173,6 +173,44 @@ class LocalMockStore {
     this.notifyAuth();
   }
 
+  public setPersonaByEmail(email: string): MockUser {
+    const normalized = email.trim().toLowerCase();
+    let user = this.db.users.find((u) => u.email.toLowerCase() === normalized);
+    if (!user) {
+      const athlete = this.db.athletes.find(
+        (a) => a.email?.toLowerCase() === normalized,
+      );
+      const invite = this.db.invites.find(
+        (i) => i.email.toLowerCase() === normalized && i.status === "pending",
+      );
+
+      user = {
+        _id: `usr_${Date.now()}`,
+        name: athlete
+          ? `${athlete.firstName} ${athlete.lastName}`
+          : email.split("@")[0].replace(/[._]/g, " "),
+        email: normalized,
+        role: invite ? invite.role : athlete ? "athlete" : undefined,
+        academyId: invite
+          ? invite.academyId
+          : athlete
+            ? athlete.academyId
+            : undefined,
+        tokenIdentifier: `mock|${Date.now()}`,
+      };
+      this.db.users.push(user);
+      if (invite) {
+        invite.status = "accepted";
+      }
+      if (athlete && !athlete.userId) {
+        athlete.userId = user._id;
+      }
+      this.saveDb();
+    }
+    this.setPersona(user._id);
+    return user;
+  }
+
   public isAuthenticated(): boolean {
     return this.currentUserId !== null;
   }

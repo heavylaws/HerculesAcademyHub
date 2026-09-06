@@ -176,19 +176,22 @@ export default function AppLayout({
                 {initials(user?.name ?? user?.email)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex min-w-0 flex-col leading-tight">
-              <span className="truncate text-sm font-medium">
-                {user?.name ?? user?.email ?? "Signed in"}
+            <div className="flex min-w-0 flex-col leading-tight gap-0.5">
+              <span className="truncate text-xs font-semibold text-foreground">
+                {user?.name ?? "Signed in"}
+              </span>
+              <span className="truncate text-[10px] font-mono text-muted-foreground">
+                {user?.email}
               </span>
               {role && (
                 <Badge
                   variant="secondary"
-                  className="w-fit gap-1 px-1.5 py-0 text-[10px]"
+                  className="w-fit gap-1 px-1.5 py-0 text-[9px] font-normal mt-0.5"
                 >
                   {role === "platform_admin" ? (
-                    <ShieldCheck className="size-2.5" />
+                    <ShieldCheck className="size-2.5 text-primary" />
                   ) : (
-                    <UserRound className="size-2.5" />
+                    <UserRound className="size-2.5 text-primary" />
                   )}
                   {ROLE_LABEL[role]}
                 </Badge>
