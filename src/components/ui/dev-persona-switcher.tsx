@@ -14,7 +14,10 @@ import {
   LogOut,
   ChevronDown,
   ChevronUp,
+  Sparkles,
 } from "lucide-react";
+
+import { RoleTestRunner } from "@/components/ui/role-test-runner.tsx";
 
 const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
 
@@ -72,6 +75,7 @@ const PERSONAS: PersonaOption[] = [
 
 export function DevPersonaSwitcher() {
   const [expanded, setExpanded] = useState(false);
+  const [testSuiteOpen, setTestSuiteOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(() =>
     localMockStore.getCurrentUser(),
   );
@@ -172,6 +176,22 @@ export function DevPersonaSwitcher() {
             })}
           </div>
 
+          {/* Interactive Role Test Runner Trigger */}
+          <div className="pt-1">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setExpanded(false);
+                setTestSuiteOpen(true);
+              }}
+              className="h-8 gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 text-xs font-semibold shadow-sm w-full"
+            >
+              <Sparkles className="size-3.5 text-primary" />
+              🧪 Live Role Test Suite
+            </Button>
+          </div>
+
           <div className="flex items-center justify-between border-t pt-2.5 gap-2">
             <Button
               variant="outline"
@@ -237,6 +257,9 @@ export function DevPersonaSwitcher() {
           <ChevronUp className="size-3.5 text-muted-foreground" />
         )}
       </button>
+
+      {/* Global Interactive Role Test Suite Modal */}
+      <RoleTestRunner open={testSuiteOpen} onOpenChange={setTestSuiteOpen} />
     </aside>
   );
 }

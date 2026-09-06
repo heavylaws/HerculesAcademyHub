@@ -17,6 +17,7 @@ import MyFeesPage from "./pages/finance/my-fees-page.tsx";
 import InvoicesPage from "./pages/invoices/page.tsx";
 import AdminBillingPage from "./pages/admin/billing/page.tsx";
 import SchedulePage from "./pages/schedule/page.tsx";
+import { DevPersonaSwitcher } from "./components/ui/dev-persona-switcher.tsx";
 
 export default function App() {
   return (
@@ -131,6 +132,7 @@ export default function App() {
           />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <DevPersonaSwitcher />
       </BrowserRouter>
     </DefaultProviders>
   );

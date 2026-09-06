@@ -177,6 +177,17 @@ class LocalMockStore {
     return this.currentUserId !== null;
   }
 
+  public getDb(): MockDatabase {
+    return this.db;
+  }
+
+  public async mutation(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<unknown> {
+    return await this.executeMutation(name, args);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Query Execution
   // ─────────────────────────────────────────────────────────────────────────────
