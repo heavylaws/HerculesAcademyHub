@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   addMonths,
   eachDayOfInterval,
@@ -26,6 +26,7 @@ import {
   Plus,
   Shield,
   Users,
+  TabletSmartphone,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -95,6 +96,7 @@ const newSessionSchema = z.object({
 type NewSessionValues = z.infer<typeof newSessionSchema>;
 
 export default function SchedulePage() {
+  const navigate = useNavigate();
   const { user } = useCurrentUser();
   const canManage = user?.role === "academy_admin" || user?.role === "coach";
 
@@ -205,6 +207,15 @@ export default function SchedulePage() {
               List
             </Button>
           </div>
+
+          <Button
+            variant="outline"
+            onClick={() => navigate("/kiosk")}
+            className="gap-1.5 border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold"
+          >
+            <TabletSmartphone className="size-4" />
+            Launch Kiosk
+          </Button>
 
           {canManage && (
             <Button onClick={() => setScheduleOpen(true)}>

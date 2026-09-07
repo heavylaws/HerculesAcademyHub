@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   XCircle,
+  TabletSmartphone,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
@@ -210,7 +211,16 @@ export default function SessionDetail() {
               </div>
             </div>
             {canManage && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/kiosk/${session._id}`)}
+                  className="gap-1.5 border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-semibold"
+                >
+                  <TabletSmartphone className="size-4" />
+                  Kiosk Mode
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"

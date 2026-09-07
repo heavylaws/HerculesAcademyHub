@@ -36,6 +36,7 @@ export interface MockAthlete {
   guardianPhone?: string;
   notes?: string;
   status: "active" | "inactive";
+  checkInPin?: string;
   createdBy?: string;
   createdAt: string;
 }
@@ -300,6 +301,7 @@ export const SEED_ATHLETES: MockAthlete[] = [
     guardianPhone: "+1-555-0199",
     notes: "Elite 100m/200m sprinter. Preparing for regional championships.",
     status: "active",
+    checkInPin: "1024",
     createdAt: "2026-01-15T10:00:00.000Z",
   },
   {
@@ -319,6 +321,7 @@ export const SEED_ATHLETES: MockAthlete[] = [
     guardianPhone: "+1-555-0144",
     notes: "National junior champion on balance beam and vault.",
     status: "active",
+    checkInPin: "2048",
     createdAt: "2026-01-20T11:00:00.000Z",
   },
   {
@@ -337,6 +340,7 @@ export const SEED_ATHLETES: MockAthlete[] = [
     guardianPhone: "+1-555-0182",
     notes: "Point guard with high vertical explosiveness.",
     status: "active",
+    checkInPin: "3012",
     createdAt: "2026-02-01T09:30:00.000Z",
   },
   {
@@ -355,6 +359,7 @@ export const SEED_ATHLETES: MockAthlete[] = [
     guardianPhone: "+1-555-0163",
     notes: "Freestyle sprinter focusing on flip turn velocity.",
     status: "active",
+    checkInPin: "4096",
     createdAt: "2026-02-10T14:00:00.000Z",
   },
   {
@@ -371,7 +376,59 @@ export const SEED_ATHLETES: MockAthlete[] = [
     phone: "+1-555-0177",
     notes: "On medical hiatus recovery (hamstring strain).",
     status: "inactive",
+    checkInPin: "5120",
     createdAt: "2026-02-15T15:00:00.000Z",
+  },
+  {
+    _id: "ath_chloe",
+    academyId: "acad_hercules",
+    firstName: "Chloe",
+    lastName: "Bennett",
+    dateOfBirth: "2005-07-14",
+    gender: "female",
+    sport: "Track & Field",
+    heightCm: 170,
+    weightKg: 61,
+    email: "chloe@hercules.com",
+    phone: "+1-555-0210",
+    notes: "Specializes in 400m hurdles and acceleration drive.",
+    status: "active",
+    checkInPin: "6144",
+    createdAt: "2026-02-20T10:00:00.000Z",
+  },
+  {
+    _id: "ath_jordan",
+    academyId: "acad_hercules",
+    firstName: "Jordan",
+    lastName: "Lee",
+    dateOfBirth: "2004-12-05",
+    gender: "male",
+    sport: "Track & Field",
+    heightCm: 188,
+    weightKg: 82,
+    email: "jordan@hercules.com",
+    phone: "+1-555-0215",
+    notes: "Decathlon and long jump prospect.",
+    status: "active",
+    checkInPin: "7168",
+    createdAt: "2026-02-22T11:00:00.000Z",
+  },
+  {
+    _id: "ath_maya",
+    academyId: "acad_hercules",
+    firstName: "Maya",
+    lastName: "Patel",
+    dateOfBirth: "2007-04-19",
+    gender: "female",
+    sport: "Gymnastics",
+    heightCm: 158,
+    weightKg: 49,
+    email: "maya@hercules.com",
+    phone: "+1-555-0220",
+    notes: "Floor exercise and uneven bars specialist.",
+    status: "active",
+    checkInPin: "8192",
+    createdAt: "2026-02-25T14:00:00.000Z",
   },
 ];
 
@@ -426,6 +483,24 @@ export const SEED_TEAM_MEMBERS: MockTeamMember[] = [
     teamId: "team_aquatics",
     athleteId: "ath_sophia",
     joinedAt: "2026-02-10T14:00:00.000Z",
+  },
+  {
+    _id: "tm_5",
+    teamId: "team_sprint",
+    athleteId: "ath_chloe",
+    joinedAt: "2026-02-20T10:00:00.000Z",
+  },
+  {
+    _id: "tm_6",
+    teamId: "team_sprint",
+    athleteId: "ath_jordan",
+    joinedAt: "2026-02-22T11:00:00.000Z",
+  },
+  {
+    _id: "tm_7",
+    teamId: "team_gymnastics",
+    athleteId: "ath_maya",
+    joinedAt: "2026-02-25T14:00:00.000Z",
   },
 ];
 

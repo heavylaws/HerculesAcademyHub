@@ -24,11 +24,13 @@ export const athletes = defineTable({
   guardianPhone: v.optional(v.string()),
   notes: v.optional(v.string()),
   status: v.union(v.literal("active"), v.literal("inactive")),
+  checkInPin: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.string(),
 })
   .index("by_academy", ["academyId"])
   .index("by_academy_and_status", ["academyId", "status"])
   .index("by_academy_and_email", ["academyId", "email"])
+  .index("by_academy_and_pin", ["academyId", "checkInPin"])
   .index("by_email", ["email"])
   .index("by_user", ["userId"]);

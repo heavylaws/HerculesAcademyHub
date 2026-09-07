@@ -19,6 +19,7 @@ import AdminBillingPage from "./pages/admin/billing/page.tsx";
 import SchedulePage from "./pages/schedule/page.tsx";
 import VideoHubPage from "./pages/athletes/video-hub-page.tsx";
 import AnnouncementsPage from "./pages/announcements/page.tsx";
+import KioskPage from "./pages/kiosk/page.tsx";
 import { DevPersonaSwitcher } from "./components/ui/dev-persona-switcher.tsx";
 
 export default function App() {
@@ -107,6 +108,22 @@ export default function App() {
                 allow={["academy_admin", "coach", "athlete", "accounting"]}
               >
                 <AnnouncementsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kiosk"
+            element={
+              <ProtectedRoute allow={["academy_admin", "coach", "athlete"]}>
+                <KioskPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kiosk/:sessionId"
+            element={
+              <ProtectedRoute allow={["academy_admin", "coach", "athlete"]}>
+                <KioskPage />
               </ProtectedRoute>
             }
           />

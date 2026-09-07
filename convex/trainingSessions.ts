@@ -480,3 +480,277 @@ export const setAttendance = mutation({
     return null;
   },
 });
+
+/** Query training sessions scheduled for today in caller's academy. */
+export const listTodaySessions = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    if (!user.academyId) return [];
+
+    const now = new Date();
+    const startOfDay = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0),
+    ).toISOString();
+    const endOfDay = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999),
+    ).toISOString();
+
+    const sessions = await ctx.db
+      .query("trainingSessions")
+      .withIndex("by_academy", (q) => q.eq("academyId", user.academyId!))
+      .collect();
+
+    // Find sessions occurring within today window
+    const todaySessions = sessions.filter(
+      (s) => s.startsAt >= startOfDay && s.startsAt <= endOfDay,
+    );
+
+    const result = [];
+    for (const session of todaySessions) {
+      const team = await ctx.db.get("teams", session.teamId);
+      const teamMembers = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team", (q) => q.eq("teamId", session.teamId))
+        .collect();
+      const attendance = await ctx.db
+        .query("attendanceRecords")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+
+      const checkedInCount = attendance.filter(
+        (a) => a.status === "present" || a.status === "late",
+      ).length;
+
+      result.push({
+        ...session,
+        teamName: team?.name ?? "Team",
+        teamSport: team?.sport,
+        rosterCount: teamMembers.length,
+        checkedInCount,
+      });
+    }
+
+    result.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+    return result;
+  },
+});
+
+/** Query kiosk view for a session: full roster with check-in status and live stats. */
+export const getSessionKioskRoster = query({
+  args: { sessionId: v.id("trainingSessions") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (!user.academyId) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "No academy access" });
+    }
+
+    const session = await ctx.db.get("trainingSessions", args.sessionId);
+    if (!session) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Session not found" });
+    }
+    await requireAcademyMember(ctx, session.academyId);
+
+    const team = await ctx.db.get("teams", session.teamId);
+    const teamMembers = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team", (q) => q.eq("teamId", session.teamId))
+      .collect();
+
+    const athleteDocs = await Promise.all(
+      teamMembers.map((m) => ctx.db.get("athletes", m.athleteId)),
+    );
+    const athletes = athleteDocs.filter(Boolean) as Doc<"athletes">[];
+
+    const records = await ctx.db
+      .query("attendanceRecords")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    const attendanceMap = new Map(records.map((r) => [r.athleteId, r]));
+
+    const roster = athletes.map((a) => {
+      const rec = attendanceMap.get(a._id);
+      return {
+        _id: a._id,
+        firstName: a.firstName,
+        lastName: a.lastName,
+        sport: a.sport,
+        email: a.email,
+        checkInPin: a.checkInPin,
+        status: (rec?.status ?? "unrecorded") as
+          | "present"
+          | "late"
+          | "absent"
+          | "excused"
+          | "unrecorded",
+        recordedAt: rec?.recordedAt,
+      };
+    });
+
+    roster.sort((a, b) => {
+      if (a.status === "unrecorded" && b.status !== "unrecorded") return -1;
+      if (a.status !== "unrecorded" && b.status === "unrecorded") return 1;
+      return a.lastName.localeCompare(b.lastName);
+    });
+
+    const total = roster.length;
+    const present = records.filter((r) => r.status === "present").length;
+    const late = records.filter((r) => r.status === "late").length;
+    const excused = records.filter((r) => r.status === "excused").length;
+    const absent = records.filter((r) => r.status === "absent").length;
+    const unrecorded = Math.max(0, total - (present + late + excused + absent));
+    const percentCheckedIn =
+      total > 0 ? Math.round(((present + late) / total) * 100) : 0;
+
+    return {
+      session: {
+        ...session,
+        teamName: team?.name ?? "Team",
+        teamSport: team?.sport,
+      },
+      roster,
+      stats: {
+        total,
+        present,
+        late,
+        excused,
+        absent,
+        unrecorded,
+        percentCheckedIn,
+      },
+    };
+  },
+});
+
+/** Kiosk Self-Check-in or Coach 1-tap check-in for an athlete. */
+export const checkInAthlete = mutation({
+  args: {
+    sessionId: v.id("trainingSessions"),
+    athleteId: v.optional(v.id("athletes")),
+    pin: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (!user.academyId) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "No academy access" });
+    }
+
+    const session = await ctx.db.get("trainingSessions", args.sessionId);
+    if (!session) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Session not found" });
+    }
+    await requireAcademyMember(ctx, session.academyId);
+
+    // Resolve target athlete
+    let targetAthlete: Doc<"athletes"> | null = null;
+    if (args.athleteId) {
+      targetAthlete = await ctx.db.get("athletes", args.athleteId);
+    } else if (args.pin && args.pin.trim()) {
+      const pinTrimmed = args.pin.trim();
+      targetAthlete = await ctx.db
+        .query("athletes")
+        .withIndex("by_academy_and_pin", (q) =>
+          q.eq("academyId", session.academyId).eq("checkInPin", pinTrimmed),
+        )
+        .first();
+    }
+
+    if (!targetAthlete) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: args.pin ? "Invalid check-in PIN" : "Athlete not found",
+      });
+    }
+
+    // Verify athlete is on the team for this session
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_athlete", (q) =>
+        q.eq("teamId", session.teamId).eq("athleteId", targetAthlete!._id),
+      )
+      .unique();
+
+    if (!membership) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: `${targetAthlete.firstName} ${targetAthlete.lastName} is not enrolled in this team`,
+      });
+    }
+
+    // Auto-determine status: late if >15 minutes after session start
+    const now = new Date();
+    const sessionStart = new Date(session.startsAt);
+    const fifteenMinsMs = 15 * 60 * 1000;
+    const isLate = now.getTime() > sessionStart.getTime() + fifteenMinsMs;
+    const status = isLate ? "late" : "present";
+    const recordedAt = now.toISOString();
+
+    const existing = await ctx.db
+      .query("attendanceRecords")
+      .withIndex("by_session_and_athlete", (q) =>
+        q.eq("sessionId", session._id).eq("athleteId", targetAthlete!._id),
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch("attendanceRecords", existing._id, {
+        status,
+        recordedBy: user._id,
+        recordedAt,
+      });
+    } else {
+      await ctx.db.insert("attendanceRecords", {
+        sessionId: session._id,
+        athleteId: targetAthlete._id,
+        academyId: session.academyId,
+        status,
+        recordedBy: user._id,
+        recordedAt,
+      });
+    }
+
+    return {
+      success: true,
+      athlete: {
+        _id: targetAthlete._id,
+        firstName: targetAthlete.firstName,
+        lastName: targetAthlete.lastName,
+      },
+      status,
+      recordedAt,
+    };
+  },
+});
+
+/** Undo a check-in record for an athlete in a session. */
+export const undoCheckIn = mutation({
+  args: {
+    sessionId: v.id("trainingSessions"),
+    athleteId: v.id("athletes"),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (!user.academyId) {
+      throw new ConvexError({ code: "FORBIDDEN", message: "No academy access" });
+    }
+
+    const session = await ctx.db.get("trainingSessions", args.sessionId);
+    if (!session) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Session not found" });
+    }
+    await requireAcademyMember(ctx, session.academyId);
+
+    const existing = await ctx.db
+      .query("attendanceRecords")
+      .withIndex("by_session_and_athlete", (q) =>
+        q.eq("sessionId", args.sessionId).eq("athleteId", args.athleteId),
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.delete("attendanceRecords", existing._id);
+    }
+    return null;
+  },
+});
+

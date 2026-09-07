@@ -50,7 +50,7 @@ export interface MockDatabase {
   announcementReads: { announcementId: string; userId: string; readAt: string }[];
 }
 
-const STORAGE_KEY = "peakform_mock_db_v4";
+const STORAGE_KEY = "peakform_mock_db_v5";
 const PERSONA_KEY = "peakform_mock_persona_id";
 
 function getInitialDb(): MockDatabase {
@@ -482,6 +482,118 @@ class LocalMockStore {
         );
 
         return { session, roster, attendance };
+      }
+
+      case "trainingSessions:listTodaySessions": {
+        if (!academyId) return [];
+        const now = new Date();
+        const startOfDay = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0),
+        ).toISOString();
+        const endOfDay = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999),
+        ).toISOString();
+
+        const todaySessions = this.db.trainingSessions.filter(
+          (s) =>
+            s.academyId === academyId &&
+            s.startsAt >= startOfDay &&
+            s.startsAt <= endOfDay,
+        );
+
+        const teamMap = new Map(this.db.teams.map((t) => [t._id, t]));
+        return todaySessions
+          .map((session) => {
+            const team = teamMap.get(session.teamId);
+            const rosterCount = this.db.teamMembers.filter(
+              (m) => m.teamId === session.teamId,
+            ).length;
+            const checkedInCount = this.db.attendanceRecords.filter(
+              (a) =>
+                a.sessionId === session._id &&
+                (a.status === "present" || a.status === "late"),
+            ).length;
+            return {
+              ...session,
+              teamName: team?.name ?? "Team",
+              teamSport: team?.sport,
+              rosterCount,
+              checkedInCount,
+            };
+          })
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+      }
+
+      case "trainingSessions:getSessionKioskRoster": {
+        const sessionId = args.sessionId as string;
+        const session = this.db.trainingSessions.find((s) => s._id === sessionId);
+        if (!session) throw new Error("Session not found");
+
+        const team = this.db.teams.find((t) => t._id === session.teamId);
+        const memberships = this.db.teamMembers.filter(
+          (m) => m.teamId === session.teamId,
+        );
+        const athleteMap = new Map(this.db.athletes.map((a) => [a._id, a]));
+        const athletes = memberships
+          .map((m) => athleteMap.get(m.athleteId))
+          .filter(Boolean) as MockAthlete[];
+
+        const records = this.db.attendanceRecords.filter(
+          (r) => r.sessionId === sessionId,
+        );
+        const recordMap = new Map(records.map((r) => [r.athleteId, r]));
+
+        const roster = athletes.map((a) => {
+          const rec = recordMap.get(a._id);
+          return {
+            _id: a._id,
+            firstName: a.firstName,
+            lastName: a.lastName,
+            sport: a.sport,
+            email: a.email,
+            checkInPin: a.checkInPin,
+            status: (rec?.status ?? "unrecorded") as
+              | "present"
+              | "late"
+              | "absent"
+              | "excused"
+              | "unrecorded",
+            recordedAt: rec?.markedAt,
+          };
+        });
+
+        roster.sort((a, b) => {
+          if (a.status === "unrecorded" && b.status !== "unrecorded") return -1;
+          if (a.status !== "unrecorded" && b.status === "unrecorded") return 1;
+          return a.lastName.localeCompare(b.lastName);
+        });
+
+        const total = roster.length;
+        const present = records.filter((r) => r.status === "present").length;
+        const late = records.filter((r) => r.status === "late").length;
+        const excused = records.filter((r) => r.status === "excused").length;
+        const absent = records.filter((r) => r.status === "absent").length;
+        const unrecorded = Math.max(0, total - (present + late + excused + absent));
+        const percentCheckedIn =
+          total > 0 ? Math.round(((present + late) / total) * 100) : 0;
+
+        return {
+          session: {
+            ...session,
+            teamName: team?.name ?? "Team",
+            teamSport: team?.sport,
+          },
+          roster,
+          stats: {
+            total,
+            present,
+            late,
+            excused,
+            absent,
+            unrecorded,
+            percentCheckedIn,
+          },
+        };
       }
 
       case "trainingSessions:getAthleteAttendanceStats": {
@@ -1496,6 +1608,110 @@ class LocalMockStore {
           this.saveDb();
           this.notifyAll();
         }
+        return null;
+      }
+
+      case "trainingSessions:setAttendance": {
+        const sessionId = args.sessionId as string;
+        const athleteId = args.athleteId as string;
+        const status = args.status as "present" | "late" | "excused" | "absent";
+        const existing = this.db.attendanceRecords.find(
+          (r) => r.sessionId === sessionId && r.athleteId === athleteId,
+        );
+        if (existing) {
+          existing.status = status;
+          existing.markedAt = nowIso;
+          existing.markedBy = user?._id ?? "usr_coach";
+        } else {
+          this.db.attendanceRecords.push({
+            _id: `att_${Date.now()}_${athleteId}`,
+            sessionId,
+            athleteId,
+            status,
+            markedAt: nowIso,
+            markedBy: user?._id ?? "usr_coach",
+          });
+        }
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "trainingSessions:checkInAthlete": {
+        const sessionId = args.sessionId as string;
+        const session = this.db.trainingSessions.find((s) => s._id === sessionId);
+        if (!session) throw new Error("Session not found");
+
+        let targetAthlete: MockAthlete | undefined;
+        if (args.athleteId) {
+          targetAthlete = this.db.athletes.find((a) => a._id === args.athleteId);
+        } else if (args.pin) {
+          const pinTrimmed = String(args.pin).trim();
+          targetAthlete = this.db.athletes.find(
+            (a) => a.academyId === session.academyId && a.checkInPin === pinTrimmed,
+          );
+        }
+
+        if (!targetAthlete) {
+          throw new Error(args.pin ? "Invalid check-in PIN" : "Athlete not found");
+        }
+
+        const isEnrolled = this.db.teamMembers.some(
+          (m) => m.teamId === session.teamId && m.athleteId === targetAthlete!._id,
+        );
+        if (!isEnrolled) {
+          throw new Error(
+            `${targetAthlete.firstName} ${targetAthlete.lastName} is not enrolled in this team`,
+          );
+        }
+
+        const now = new Date();
+        const sessionStart = new Date(session.startsAt);
+        const fifteenMinsMs = 15 * 60 * 1000;
+        const isLate = now.getTime() > sessionStart.getTime() + fifteenMinsMs;
+        const status = isLate ? "late" : "present";
+
+        const existing = this.db.attendanceRecords.find(
+          (r) => r.sessionId === sessionId && r.athleteId === targetAthlete!._id,
+        );
+
+        if (existing) {
+          existing.status = status;
+          existing.markedAt = nowIso;
+          existing.markedBy = user?._id ?? "usr_admin";
+        } else {
+          this.db.attendanceRecords.push({
+            _id: `att_${Date.now()}_${targetAthlete._id}`,
+            sessionId,
+            athleteId: targetAthlete._id,
+            status,
+            markedAt: nowIso,
+            markedBy: user?._id ?? "usr_admin",
+          });
+        }
+        this.saveDb();
+        this.notifyAll();
+
+        return {
+          success: true,
+          athlete: {
+            _id: targetAthlete._id,
+            firstName: targetAthlete.firstName,
+            lastName: targetAthlete.lastName,
+          },
+          status,
+          recordedAt: nowIso,
+        };
+      }
+
+      case "trainingSessions:undoCheckIn": {
+        const sessionId = args.sessionId as string;
+        const athleteId = args.athleteId as string;
+        this.db.attendanceRecords = this.db.attendanceRecords.filter(
+          (r) => !(r.sessionId === sessionId && r.athleteId === athleteId),
+        );
+        this.saveDb();
+        this.notifyAll();
         return null;
       }
 
