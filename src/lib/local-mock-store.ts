@@ -13,6 +13,7 @@ import {
   SEED_FEE_PAYMENTS,
   SEED_INVOICES,
   SEED_INVITES,
+  SEED_ANNOUNCEMENTS,
   type MockAcademy,
   type MockUser,
   type MockAthlete,
@@ -27,6 +28,7 @@ import {
   type MockFeePayment,
   type MockInvoice,
   type MockInvite,
+  type MockAnnouncement,
 } from "./local-mock-data.ts";
 
 export interface MockDatabase {
@@ -44,9 +46,11 @@ export interface MockDatabase {
   feePayments: MockFeePayment[];
   invoices: MockInvoice[];
   invites: MockInvite[];
+  announcements: MockAnnouncement[];
+  announcementReads: { announcementId: string; userId: string; readAt: string }[];
 }
 
-const STORAGE_KEY = "peakform_mock_db_v3";
+const STORAGE_KEY = "peakform_mock_db_v4";
 const PERSONA_KEY = "peakform_mock_persona_id";
 
 function getInitialDb(): MockDatabase {
@@ -65,6 +69,8 @@ function getInitialDb(): MockDatabase {
     feePayments: [...SEED_FEE_PAYMENTS],
     invoices: [...SEED_INVOICES],
     invites: [...SEED_INVITES],
+    announcements: [...SEED_ANNOUNCEMENTS],
+    announcementReads: [],
   };
 }
 
@@ -755,6 +761,52 @@ class LocalMockStore {
         return [];
       }
 
+      case "announcements:listAnnouncements": {
+        if (!academyId) return [];
+        const all = this.db.announcements.filter((a) => a.academyId === academyId);
+        const reads = new Set(
+          (this.db.announcementReads || [])
+            .filter((r) => r.userId === user?._id)
+            .map((r) => r.announcementId),
+        );
+
+        let filtered = all.filter((a) => {
+          if (args.category && a.category !== args.category) return false;
+          if (a.targetTeamId && args.teamId && a.targetTeamId !== args.teamId) {
+            if (user?.role === "athlete") return false;
+          }
+          if (a.targetRole && a.targetRole !== user?.role && user?.role !== "academy_admin") {
+            return false;
+          }
+          return true;
+        });
+
+        const priorityWeight = { urgent: 3, important: 2, normal: 1 };
+        filtered.sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+          const pDiff = (priorityWeight[b.priority] ?? 1) - (priorityWeight[a.priority] ?? 1);
+          if (pDiff !== 0) return pDiff;
+          return b.createdAt.localeCompare(a.createdAt);
+        });
+
+        return filtered.map((a) => ({
+          ...a,
+          isRead: reads.has(a._id),
+          authorName: a.authorName ?? "Academy Staff",
+        }));
+      }
+
+      case "announcements:getUnreadCount": {
+        if (!academyId || !user) return 0;
+        const all = this.db.announcements.filter((a) => a.academyId === academyId);
+        const reads = new Set(
+          (this.db.announcementReads || [])
+            .filter((r) => r.userId === user._id)
+            .map((r) => r.announcementId),
+        );
+        return all.filter((a) => !reads.has(a._id)).length;
+      }
+
       default:
         console.warn(`[LocalMock] Unhandled query: ${name}`);
         return undefined;
@@ -1387,6 +1439,64 @@ class LocalMockStore {
 
       case "videoAnalysis:createAnalysis": {
         return `analysis_${Date.now()}`;
+      }
+
+      case "announcements:createAnnouncement": {
+        if (!academyId) throw new Error("No academy");
+        if (!user || (user.role !== "academy_admin" && user.role !== "coach")) {
+          throw new Error("Forbidden: only academy admin or coach can broadcast announcements");
+        }
+        const newAnn: MockAnnouncement = {
+          _id: `ann_${Date.now()}`,
+          academyId,
+          title: (args.title as string).trim(),
+          content: (args.content as string).trim(),
+          category: args.category as MockAnnouncement["category"],
+          priority: args.priority as MockAnnouncement["priority"],
+          targetTeamId: args.targetTeamId as string | undefined,
+          targetRole: args.targetRole as string | undefined,
+          isPinned: Boolean(args.isPinned),
+          expiresAt: args.expiresAt as string | undefined,
+          createdBy: user?._id ?? "usr_admin",
+          authorName: user ? `${user.name} (${user.role})` : "Staff",
+          createdAt: nowIso,
+        };
+        this.db.announcements.unshift(newAnn);
+        this.saveDb();
+        this.notifyAll();
+        return newAnn._id;
+      }
+
+      case "announcements:deleteAnnouncement": {
+        const announcementId = args.announcementId as string;
+        this.db.announcements = this.db.announcements.filter(
+          (a) => a._id !== announcementId,
+        );
+        this.db.announcementReads = (this.db.announcementReads || []).filter(
+          (r) => r.announcementId !== announcementId,
+        );
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "announcements:markAnnouncementAsRead": {
+        const announcementId = args.announcementId as string;
+        if (!user) return null;
+        if (!this.db.announcementReads) this.db.announcementReads = [];
+        const exists = this.db.announcementReads.some(
+          (r) => r.announcementId === announcementId && r.userId === user._id,
+        );
+        if (!exists) {
+          this.db.announcementReads.push({
+            announcementId,
+            userId: user._id,
+            readAt: nowIso,
+          });
+          this.saveDb();
+          this.notifyAll();
+        }
+        return null;
       }
 
       default:

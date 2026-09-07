@@ -165,6 +165,22 @@ export interface MockInvite {
   createdAt: string;
 }
 
+export interface MockAnnouncement {
+  _id: string;
+  academyId: string;
+  title: string;
+  content: string;
+  category: "weather" | "meet_schedule" | "facility" | "fees" | "general";
+  priority: "urgent" | "important" | "normal";
+  targetTeamId?: string;
+  targetRole?: string;
+  isPinned: boolean;
+  expiresAt?: string;
+  createdBy: string;
+  authorName?: string;
+  createdAt: string;
+}
+
 // Generate dates relative to today for realistic schedule rendering
 const now = new Date();
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -823,5 +839,61 @@ export const SEED_INVITES: MockInvite[] = [
     invitedBy: "usr_admin",
     expiresAt: "2026-09-30T23:59:59.000Z",
     createdAt: "2026-09-01T10:00:00.000Z",
+  },
+];
+
+export const SEED_ANNOUNCEMENTS: MockAnnouncement[] = [
+  {
+    _id: "ann_weather_1",
+    academyId: "acad_hercules",
+    title: "⚡ Lightning Warning: Track Session Relocated to Fieldhouse Gym B",
+    content:
+      "Due to severe thunderstorm warnings and lightning in the local sector, today's 4:00 PM sprint and hurdles practice is moved indoors to Fieldhouse Gym B. Wear flat trainers (no track spikes permitted on synthetic gym floor).",
+    category: "weather",
+    priority: "urgent",
+    isPinned: true,
+    createdBy: "usr_coach",
+    authorName: "Dave Miller (Head Coach)",
+    createdAt: `${todayStr}T08:30:00.000Z`,
+  },
+  {
+    _id: "ann_meet_1",
+    academyId: "acad_hercules",
+    title: "🚌 Regional Qualifiers: Team Bus Departure & Staging Times",
+    content:
+      "Charter bus for Saturday's Regional Championship departs from North Academy Gate at sharp 6:30 AM. Athletes must arrive by 6:15 AM with competition uniforms, spikes, and hydration packs. Warm-ups begin at 8:00 AM at the stadium.",
+    category: "meet_schedule",
+    priority: "important",
+    targetTeamId: "team_sprint",
+    isPinned: true,
+    createdBy: "usr_admin",
+    authorName: "Jane Sterling (Academy Director)",
+    createdAt: `${yesterdayStr}T14:00:00.000Z`,
+  },
+  {
+    _id: "ann_facility_1",
+    academyId: "acad_hercules",
+    title: "Olympic Weight Room: Platform 3 Maintenance & Resurfacing",
+    content:
+      "Olympic lifting platform #3 will be closed for timber resurfacing and bolt tensioning from Wednesday through Friday. Platforms 1, 2, and 4 remain fully accessible for scheduled lifting blocks.",
+    category: "facility",
+    priority: "normal",
+    isPinned: false,
+    createdBy: "usr_admin",
+    authorName: "Jane Sterling (Academy Director)",
+    createdAt: "2026-09-03T10:00:00.000Z",
+  },
+  {
+    _id: "ann_fees_1",
+    academyId: "acad_hercules",
+    title: "Fall Season Membership & Coaching Dues Settlement Deadline",
+    content:
+      "A friendly reminder that Fall Q4 tuition and facility dues must be settled by September 15. Invoices can be paid online via the Fees tab or directly at the finance office.",
+    category: "fees",
+    priority: "important",
+    isPinned: false,
+    createdBy: "usr_accounting",
+    authorName: "Sarah Lin (Accounting)",
+    createdAt: "2026-09-01T09:00:00.000Z",
   },
 ];

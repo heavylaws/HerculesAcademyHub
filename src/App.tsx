@@ -18,6 +18,7 @@ import InvoicesPage from "./pages/invoices/page.tsx";
 import AdminBillingPage from "./pages/admin/billing/page.tsx";
 import SchedulePage from "./pages/schedule/page.tsx";
 import VideoHubPage from "./pages/athletes/video-hub-page.tsx";
+import AnnouncementsPage from "./pages/announcements/page.tsx";
 import { DevPersonaSwitcher } from "./components/ui/dev-persona-switcher.tsx";
 
 export default function App() {
@@ -96,6 +97,16 @@ export default function App() {
             element={
               <ProtectedRoute allow={["academy_admin", "coach", "athlete"]}>
                 <VideoHubPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/announcements"
+            element={
+              <ProtectedRoute
+                allow={["academy_admin", "coach", "athlete", "accounting"]}
+              >
+                <AnnouncementsPage />
               </ProtectedRoute>
             }
           />

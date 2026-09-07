@@ -16,6 +16,7 @@ import {
   TrendingUp,
   UserRound,
   Users,
+  Megaphone,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import {
@@ -806,6 +807,54 @@ function NoWorkspaceState({ userEmail }: { userEmail?: string }) {
   );
 }
 
+function UrgentAnnouncementBanner() {
+  const announcements = useQuery(api.announcements.listAnnouncements, {});
+  const activeAnnouncements = useMemo(() => {
+    if (!announcements) return [];
+    return announcements.filter((a) => a.priority === "urgent" || a.isPinned);
+  }, [announcements]);
+
+  if (activeAnnouncements.length === 0) return null;
+  const topNotice = activeAnnouncements[0];
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-950 dark:text-amber-200">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400">
+          <Megaphone className="size-4" />
+        </span>
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] uppercase font-semibold",
+                topNotice.priority === "urgent"
+                  ? "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400"
+                  : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+              )}
+            >
+              {topNotice.priority === "urgent" ? "Urgent" : "Pinned"}
+            </Badge>
+            <span className="text-xs font-semibold text-foreground truncate">
+              {topNotice.title}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+            {topNotice.content}
+          </p>
+        </div>
+      </div>
+      <Link
+        to="/announcements"
+        className="shrink-0 text-xs font-medium text-primary hover:underline"
+      >
+        View noticeboard &rarr;
+      </Link>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useCurrentUser();
   const data = useQuery(api.dashboard.getDashboardData, {});
@@ -843,6 +892,9 @@ export default function Dashboard() {
         </h1>
         <p className="text-muted-foreground">{subtitle}</p>
       </div>
+
+      {/* Urgent Announcement Banner */}
+      <UrgentAnnouncementBanner />
 
       {/* Role-specific content */}
       {data === undefined ? (

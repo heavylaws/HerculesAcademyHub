@@ -18,6 +18,12 @@ import { assessments } from "./schema/assessments.ts";
 import { videoAnalyses } from "./schema/videoAnalyses.ts";
 import { athleteFees, feePayments, feeStatusValidator } from "./schema/fees.ts";
 import { invoices, invoiceStatusValidator } from "./schema/invoices.ts";
+import {
+  announcements,
+  announcementReads,
+  announcementCategoryValidator,
+  announcementPriorityValidator,
+} from "./schema/announcements.ts";
 
 export default defineSchema({
   users: defineTable({
@@ -45,6 +51,8 @@ export default defineSchema({
   athleteFees,
   feePayments,
   invoices,
+  announcements,
+  announcementReads,
 });
 
 export {
@@ -54,4 +62,6 @@ export {
   planStatusValidator,
   feeStatusValidator,
   invoiceStatusValidator,
+  announcementCategoryValidator,
+  announcementPriorityValidator,
 };

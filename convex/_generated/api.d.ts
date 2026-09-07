@@ -9,6 +9,7 @@
  */
 
 import type * as academies from "../academies.js";
+import type * as announcements from "../announcements.js";
 import type * as assessments from "../assessments.js";
 import type * as athletes from "../athletes.js";
 import type * as dashboard from "../dashboard.js";
@@ -18,6 +19,7 @@ import type * as invites from "../invites.js";
 import type * as invoices from "../invoices.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as schema_academies from "../schema/academies.js";
+import type * as schema_announcements from "../schema/announcements.js";
 import type * as schema_assessments from "../schema/assessments.js";
 import type * as schema_athletes from "../schema/athletes.js";
 import type * as schema_fees from "../schema/fees.js";
@@ -42,6 +44,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   academies: typeof academies;
+  announcements: typeof announcements;
   assessments: typeof assessments;
   athletes: typeof athletes;
   dashboard: typeof dashboard;
@@ -51,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   invoices: typeof invoices;
   "lib/auth": typeof lib_auth;
   "schema/academies": typeof schema_academies;
+  "schema/announcements": typeof schema_announcements;
   "schema/assessments": typeof schema_assessments;
   "schema/athletes": typeof schema_athletes;
   "schema/fees": typeof schema_fees;

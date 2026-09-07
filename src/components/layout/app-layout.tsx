@@ -12,8 +12,10 @@ import {
   UserRound,
   Users,
   Video,
+  Megaphone,
 } from "lucide-react";
 import { toast } from "sonner";
+import { NotificationBell } from "@/components/notifications/notification-bell.tsx";
 import {
   Sidebar,
   SidebarContent,
@@ -62,6 +64,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/teams", label: "Teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/video-hub", label: "Video Hub", icon: Video },
+    { to: "/announcements", label: "Noticeboard", icon: Megaphone },
     { to: "/staff", label: "Staff", icon: Users },
     { to: "/finance", label: "Fees", icon: DollarSign },
     { to: "/invoices", label: "Invoices", icon: FileText },
@@ -72,10 +75,12 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/teams", label: "Teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/video-hub", label: "Video Hub", icon: Video },
+    { to: "/announcements", label: "Noticeboard", icon: Megaphone },
     { to: "/staff", label: "Staff", icon: Users },
   ],
   accounting: [
     { to: "/", label: "Overview", icon: LayoutDashboard },
+    { to: "/announcements", label: "Noticeboard", icon: Megaphone },
     { to: "/finance", label: "Fees", icon: DollarSign },
     { to: "/invoices", label: "Invoices", icon: FileText },
   ],
@@ -85,6 +90,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/teams", label: "My teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/video-hub", label: "Video Hub", icon: Video },
+    { to: "/announcements", label: "Noticeboard", icon: Megaphone },
     { to: "/finance/my-fees", label: "My fees", icon: DollarSign },
   ],
 };
@@ -213,12 +219,17 @@ export default function AppLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="h-4" />
-          <span className="text-sm font-medium text-muted-foreground">
-            {role ? ROLE_LABEL[role] : ""} Workspace
-          </span>
+        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger />
+            <Separator orientation="vertical" className="h-4" />
+            <span className="text-sm font-medium text-muted-foreground">
+              {role ? ROLE_LABEL[role] : ""} Workspace
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+          </div>
         </header>
         <div className="flex-1 overflow-auto p-4 md:p-6">
           {children ?? <Outlet />}
