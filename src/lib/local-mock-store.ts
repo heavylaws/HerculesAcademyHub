@@ -14,6 +14,8 @@ import {
   SEED_INVOICES,
   SEED_INVITES,
   SEED_ANNOUNCEMENTS,
+  SEED_CONVERSATIONS,
+  SEED_MESSAGES,
   type MockAcademy,
   type MockUser,
   type MockAthlete,
@@ -29,6 +31,8 @@ import {
   type MockInvoice,
   type MockInvite,
   type MockAnnouncement,
+  type MockConversation,
+  type MockMessage,
 } from "./local-mock-data.ts";
 
 export interface MockDatabase {
@@ -48,9 +52,11 @@ export interface MockDatabase {
   invites: MockInvite[];
   announcements: MockAnnouncement[];
   announcementReads: { announcementId: string; userId: string; readAt: string }[];
+  conversations: MockConversation[];
+  messages: MockMessage[];
 }
 
-const STORAGE_KEY = "peakform_mock_db_v5";
+const STORAGE_KEY = "peakform_mock_db_v6";
 const PERSONA_KEY = "peakform_mock_persona_id";
 
 function getInitialDb(): MockDatabase {
@@ -71,6 +77,8 @@ function getInitialDb(): MockDatabase {
     invites: [...SEED_INVITES],
     announcements: [...SEED_ANNOUNCEMENTS],
     announcementReads: [],
+    conversations: [...SEED_CONVERSATIONS],
+    messages: [...SEED_MESSAGES],
   };
 }
 
@@ -919,6 +927,99 @@ class LocalMockStore {
         return all.filter((a) => !reads.has(a._id)).length;
       }
 
+      case "messages:listConversations": {
+        if (!academyId || !user) return [];
+        const allConvs = this.db.conversations.filter(
+          (c) =>
+            c.academyId === academyId && c.participantIds.includes(user._id),
+        );
+
+        const userMap = new Map(this.db.users.map((u) => [u._id, u]));
+
+        const results = allConvs.map((c) => {
+          const otherId = c.participantIds.find((id) => id !== user._id);
+          const otherUser = otherId ? userMap.get(otherId) : user;
+          const unreadCount = this.db.messages.filter(
+            (m) => m.conversationId === c._id && !m.readBy.includes(user._id),
+          ).length;
+
+          return {
+            ...c,
+            otherParticipant: {
+              _id: otherUser?._id ?? "",
+              name: otherUser?.name ?? otherUser?.email ?? "User",
+              email: otherUser?.email,
+              role: otherUser?.role,
+            },
+            unreadCount,
+          };
+        });
+
+        results.sort((a, b) => {
+          const timeA = a.lastMessageAt ?? a.createdAt;
+          const timeB = b.lastMessageAt ?? b.createdAt;
+          return timeB.localeCompare(timeA);
+        });
+
+        return results;
+      }
+
+      case "messages:getConversation": {
+        const conversationId = args.conversationId as string;
+        const conv = this.db.conversations.find((c) => c._id === conversationId);
+        if (!conv) throw new Error("Conversation not found");
+        if (
+          !conv.participantIds.includes(user?._id ?? "") &&
+          user?.role !== "academy_admin"
+        ) {
+          throw new Error("Forbidden: not a participant");
+        }
+        const userMap = new Map(this.db.users.map((u) => [u._id, u]));
+        const participants = conv.participantIds
+          .map((id) => userMap.get(id))
+          .filter(Boolean);
+        return {
+          ...conv,
+          participants,
+        };
+      }
+
+      case "messages:listMessages": {
+        const conversationId = args.conversationId as string;
+        const conv = this.db.conversations.find((c) => c._id === conversationId);
+        if (!conv) throw new Error("Conversation not found");
+        if (
+          !conv.participantIds.includes(user?._id ?? "") &&
+          user?.role !== "academy_admin"
+        ) {
+          throw new Error("Forbidden: not a participant");
+        }
+
+        const msgs = this.db.messages
+          .filter((m) => m.conversationId === conversationId)
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+        const userMap = new Map(this.db.users.map((u) => [u._id, u]));
+        return msgs.map((m) => ({
+          ...m,
+          senderName: userMap.get(m.senderId)?.name ?? "User",
+          senderRole: userMap.get(m.senderId)?.role,
+          isOutgoing: m.senderId === user?._id,
+        }));
+      }
+
+      case "messages:getUnreadMessagesCount": {
+        if (!academyId || !user) return 0;
+        const userConvs = this.db.conversations.filter(
+          (c) =>
+            c.academyId === academyId && c.participantIds.includes(user._id),
+        );
+        const convIds = new Set(userConvs.map((c) => c._id));
+        return this.db.messages.filter(
+          (m) => convIds.has(m.conversationId) && !m.readBy.includes(user._id),
+        ).length;
+      }
+
       default:
         console.warn(`[LocalMock] Unhandled query: ${name}`);
         return undefined;
@@ -1712,6 +1813,142 @@ class LocalMockStore {
         );
         this.saveDb();
         this.notifyAll();
+        return null;
+      }
+
+      case "messages:sendMessage": {
+        if (!user) throw new Error("Unauthenticated");
+        const conversationId = args.conversationId as string;
+        const content = (args.content as string).trim();
+        if (!content) throw new Error("Message content cannot be empty");
+
+        const conv = this.db.conversations.find((c) => c._id === conversationId);
+        if (!conv) throw new Error("Conversation not found");
+        if (
+          !conv.participantIds.includes(user._id) &&
+          user.role !== "academy_admin"
+        ) {
+          throw new Error("Forbidden: not a participant");
+        }
+
+        const newMsg: MockMessage = {
+          _id: `msg_${Date.now()}`,
+          conversationId,
+          academyId: conv.academyId,
+          senderId: user._id,
+          content,
+          readBy: [user._id],
+          createdAt: nowIso,
+        };
+
+        this.db.messages.push(newMsg);
+        conv.lastMessageText = content;
+        conv.lastMessageAt = nowIso;
+        conv.lastSenderId = user._id;
+
+        this.saveDb();
+        this.notifyAll();
+        return newMsg._id;
+      }
+
+      case "messages:getOrCreateConversation": {
+        if (!user || !academyId) throw new Error("Unauthenticated");
+        const targetUserId = args.targetUserId as string;
+
+        const existing = this.db.conversations.find(
+          (c) =>
+            c.academyId === academyId &&
+            c.participantIds.length === 2 &&
+            c.participantIds.includes(user._id) &&
+            c.participantIds.includes(targetUserId) &&
+            (!args.contextId || c.contextId === args.contextId),
+        );
+
+        if (existing) {
+          if (args.contextType && args.contextType !== "general") {
+            existing.contextType = args.contextType as MockConversation["contextType"];
+          }
+          if (args.contextTitle) {
+            existing.contextTitle = args.contextTitle as string;
+          }
+          if (args.contextId) {
+            existing.contextId = args.contextId as string;
+          }
+          if (args.initialMessage && String(args.initialMessage).trim()) {
+            const initialText = String(args.initialMessage).trim();
+            const newMsg: MockMessage = {
+              _id: `msg_${Date.now()}`,
+              conversationId: existing._id,
+              academyId,
+              senderId: user._id,
+              content: initialText,
+              readBy: [user._id],
+              createdAt: nowIso,
+            };
+            this.db.messages.push(newMsg);
+            existing.lastMessageText = initialText;
+            existing.lastMessageAt = nowIso;
+            existing.lastSenderId = user._id;
+          }
+          this.saveDb();
+          this.notifyAll();
+          return existing._id;
+        }
+
+        const newConv: MockConversation = {
+          _id: `conv_${Date.now()}`,
+          academyId,
+          participantIds: [user._id, targetUserId],
+          athleteId: args.athleteId as string | undefined,
+          title: args.title as string | undefined,
+          contextType:
+            (args.contextType as MockConversation["contextType"]) ?? "general",
+          contextId: args.contextId as string | undefined,
+          contextTitle: args.contextTitle as string | undefined,
+          lastMessageText: args.initialMessage
+            ? String(args.initialMessage).trim()
+            : undefined,
+          lastMessageAt: args.initialMessage ? nowIso : undefined,
+          lastSenderId: args.initialMessage ? user._id : undefined,
+          createdAt: nowIso,
+        };
+
+        this.db.conversations.unshift(newConv);
+
+        if (args.initialMessage && String(args.initialMessage).trim()) {
+          this.db.messages.push({
+            _id: `msg_${Date.now()}`,
+            conversationId: newConv._id,
+            academyId,
+            senderId: user._id,
+            content: String(args.initialMessage).trim(),
+            readBy: [user._id],
+            createdAt: nowIso,
+          });
+        }
+
+        this.saveDb();
+        this.notifyAll();
+        return newConv._id;
+      }
+
+      case "messages:markConversationRead": {
+        if (!user) return null;
+        const conversationId = args.conversationId as string;
+        let changed = false;
+        for (const msg of this.db.messages) {
+          if (
+            msg.conversationId === conversationId &&
+            !msg.readBy.includes(user._id)
+          ) {
+            msg.readBy.push(user._id);
+            changed = true;
+          }
+        }
+        if (changed) {
+          this.saveDb();
+          this.notifyAll();
+        }
         return null;
       }
 

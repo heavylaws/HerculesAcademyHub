@@ -13,6 +13,7 @@ import {
   Users,
   Video,
   Megaphone,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/notifications/notification-bell.tsx";
@@ -64,6 +65,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/teams", label: "Teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/video-hub", label: "Video Hub", icon: Video },
+    { to: "/messages", label: "Messages", icon: MessageSquare },
     { to: "/announcements", label: "Noticeboard", icon: Megaphone },
     { to: "/staff", label: "Staff", icon: Users },
     { to: "/finance", label: "Fees", icon: DollarSign },
@@ -75,6 +77,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/teams", label: "Teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/video-hub", label: "Video Hub", icon: Video },
+    { to: "/messages", label: "Messages", icon: MessageSquare },
     { to: "/announcements", label: "Noticeboard", icon: Megaphone },
     { to: "/staff", label: "Staff", icon: Users },
   ],
@@ -90,6 +93,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/teams", label: "My teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
     { to: "/video-hub", label: "Video Hub", icon: Video },
+    { to: "/messages", label: "Messages", icon: MessageSquare },
     { to: "/announcements", label: "Noticeboard", icon: Megaphone },
     { to: "/finance/my-fees", label: "My fees", icon: DollarSign },
   ],

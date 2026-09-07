@@ -24,6 +24,11 @@ import {
   announcementCategoryValidator,
   announcementPriorityValidator,
 } from "./schema/announcements.ts";
+import {
+  conversations,
+  messages,
+  conversationContextValidator,
+} from "./schema/messages.ts";
 
 export default defineSchema({
   users: defineTable({
@@ -53,6 +58,8 @@ export default defineSchema({
   invoices,
   announcements,
   announcementReads,
+  conversations,
+  messages,
 });
 
 export {

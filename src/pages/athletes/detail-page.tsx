@@ -20,6 +20,7 @@ import {
   Unlink,
   UserRound,
   Weight,
+  MessageSquare,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
@@ -106,11 +107,33 @@ export default function AthleteDetail() {
   const setStatus = useMutation(api.athletes.setAthleteStatus);
   const linkToUser = useMutation(api.athletes.linkAthleteToUser);
   const unlinkUser = useMutation(api.athletes.unlinkAthleteUser);
+  const getOrCreateConversation = useMutation(api.messages.getOrCreateConversation);
   const [editOpen, setEditOpen] = useState(false);
   const [createPlanOpen, setCreatePlanOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkEmail, setLinkEmail] = useState("");
   const [isLinking, setIsLinking] = useState(false);
+
+  const handleMessageAthlete = async () => {
+    if (!athlete) return;
+    if (athlete.userId) {
+      try {
+        const convId = await getOrCreateConversation({
+          targetUserId: athlete.userId,
+          athleteId: athlete._id,
+        });
+        navigate(`/messages/${convId}`);
+      } catch (error) {
+        toast.error(
+          error instanceof ConvexError
+            ? String((error.data as { message?: string }).message)
+            : "Failed to open messaging channel",
+        );
+      }
+    } else {
+      toast.info("Link a user login account first to message this athlete directly.");
+    }
+  };
 
   const handleLinkAccount = async () => {
     if (!athlete || !linkEmail.trim()) return;
@@ -266,6 +289,15 @@ export default function AthleteDetail() {
             </div>
             {canManage && (
               <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMessageAthlete}
+                  className="gap-1.5"
+                >
+                  <MessageSquare className="size-4" />
+                  Message
+                </Button>
                 {athlete.userId ? (
                   <Button
                     variant="outline"

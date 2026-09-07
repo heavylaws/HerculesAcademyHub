@@ -19,6 +19,7 @@ import AdminBillingPage from "./pages/admin/billing/page.tsx";
 import SchedulePage from "./pages/schedule/page.tsx";
 import VideoHubPage from "./pages/athletes/video-hub-page.tsx";
 import AnnouncementsPage from "./pages/announcements/page.tsx";
+import MessagesPage from "./pages/messages/page.tsx";
 import KioskPage from "./pages/kiosk/page.tsx";
 import { DevPersonaSwitcher } from "./components/ui/dev-persona-switcher.tsx";
 
@@ -98,6 +99,22 @@ export default function App() {
             element={
               <ProtectedRoute allow={["academy_admin", "coach", "athlete"]}>
                 <VideoHubPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute allow={["academy_admin", "coach", "athlete"]}>
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages/:conversationId"
+            element={
+              <ProtectedRoute allow={["academy_admin", "coach", "athlete"]}>
+                <MessagesPage />
               </ProtectedRoute>
             }
           />

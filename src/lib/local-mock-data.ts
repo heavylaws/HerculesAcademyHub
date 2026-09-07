@@ -182,6 +182,31 @@ export interface MockAnnouncement {
   createdAt: string;
 }
 
+export interface MockConversation {
+  _id: string;
+  academyId: string;
+  participantIds: string[];
+  athleteId?: string;
+  title?: string;
+  contextType?: "session" | "video" | "general";
+  contextId?: string;
+  contextTitle?: string;
+  lastMessageText?: string;
+  lastMessageAt?: string;
+  lastSenderId?: string;
+  createdAt: string;
+}
+
+export interface MockMessage {
+  _id: string;
+  conversationId: string;
+  academyId: string;
+  senderId: string;
+  content: string;
+  readBy: string[];
+  createdAt: string;
+}
+
 // Generate dates relative to today for realistic schedule rendering
 const now = new Date();
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -972,3 +997,110 @@ export const SEED_ANNOUNCEMENTS: MockAnnouncement[] = [
     createdAt: "2026-09-01T09:00:00.000Z",
   },
 ];
+
+export const SEED_CONVERSATIONS: MockConversation[] = [
+  {
+    _id: "conv_marcus_coach",
+    academyId: "acad_hercules",
+    participantIds: ["usr_coach", "usr_athlete"],
+    athleteId: "ath_marcus",
+    title: "Sprint Acceleration & Block Starts",
+    contextType: "session",
+    contextId: "sess_today_1",
+    contextTitle: "Max Velocity Sprints & Acceleration",
+    lastMessageText: "Check the video review in Video Hub when you get home.",
+    lastMessageAt: `${todayStr}T11:45:00.000Z`,
+    lastSenderId: "usr_coach",
+    createdAt: `${todayStr}T10:00:00.000Z`,
+  },
+  {
+    _id: "conv_elena_admin",
+    academyId: "acad_hercules",
+    participantIds: ["usr_admin", "usr_athlete_elena"],
+    athleteId: "ath_elena",
+    title: "Regional Championship Travel & Warm-up Times",
+    contextType: "general",
+    lastMessageText: "Bus leaves Saturday 6:30 AM sharp from North Gate. Warm-ups at 8:00 AM.",
+    lastMessageAt: `${yesterdayStr}T16:20:00.000Z`,
+    lastSenderId: "usr_admin",
+    createdAt: `${yesterdayStr}T15:00:00.000Z`,
+  },
+  {
+    _id: "conv_coach_admin",
+    academyId: "acad_hercules",
+    participantIds: ["usr_admin", "usr_coach"],
+    title: "Equipment & Track Timing Gates Calibration",
+    contextType: "general",
+    lastMessageText: "Timing gates 3 and 4 are recalibrated with zero latency.",
+    lastMessageAt: `${yesterdayStr}T09:30:00.000Z`,
+    lastSenderId: "usr_coach",
+    createdAt: "2026-09-02T08:00:00.000Z",
+  },
+];
+
+export const SEED_MESSAGES: MockMessage[] = [
+  {
+    _id: "msg_1",
+    conversationId: "conv_marcus_coach",
+    academyId: "acad_hercules",
+    senderId: "usr_coach",
+    content: "Hey Marcus, your first 30m drive phase was noticeably smoother today. Let's make sure you don't raise your torso too early on block 2.",
+    readBy: ["usr_coach", "usr_athlete"],
+    createdAt: `${todayStr}T10:05:00.000Z`,
+  },
+  {
+    _id: "msg_2",
+    conversationId: "conv_marcus_coach",
+    academyId: "acad_hercules",
+    senderId: "usr_athlete",
+    content: "Thanks Coach Dave! Felt much more explosive out of the blocks. I'll focus on keeping my chin tucked until step 5.",
+    readBy: ["usr_coach", "usr_athlete"],
+    createdAt: `${todayStr}T10:20:00.000Z`,
+  },
+  {
+    _id: "msg_3",
+    conversationId: "conv_marcus_coach",
+    academyId: "acad_hercules",
+    senderId: "usr_coach",
+    content: "Check the video review in Video Hub when you get home.",
+    readBy: ["usr_coach"],
+    createdAt: `${todayStr}T11:45:00.000Z`,
+  },
+  {
+    _id: "msg_4",
+    conversationId: "conv_elena_admin",
+    academyId: "acad_hercules",
+    senderId: "usr_admin",
+    content: "Elena, confirming your competition uniform and travel permission slip have been submitted.",
+    readBy: ["usr_admin", "usr_athlete_elena"],
+    createdAt: `${yesterdayStr}T15:05:00.000Z`,
+  },
+  {
+    _id: "msg_5",
+    conversationId: "conv_elena_admin",
+    academyId: "acad_hercules",
+    senderId: "usr_athlete_elena",
+    content: "Yes Director Jane, my parents signed it yesterday. What time is warm-up check-in?",
+    readBy: ["usr_admin", "usr_athlete_elena"],
+    createdAt: `${yesterdayStr}T15:40:00.000Z`,
+  },
+  {
+    _id: "msg_6",
+    conversationId: "conv_elena_admin",
+    academyId: "acad_hercules",
+    senderId: "usr_admin",
+    content: "Bus leaves Saturday 6:30 AM sharp from North Gate. Warm-ups at 8:00 AM.",
+    readBy: ["usr_admin"],
+    createdAt: `${yesterdayStr}T16:20:00.000Z`,
+  },
+  {
+    _id: "msg_7",
+    conversationId: "conv_coach_admin",
+    academyId: "acad_hercules",
+    senderId: "usr_coach",
+    content: "Timing gates 3 and 4 are recalibrated with zero latency.",
+    readBy: ["usr_coach", "usr_admin"],
+    createdAt: `${yesterdayStr}T09:30:00.000Z`,
+  },
+];
+
