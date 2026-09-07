@@ -64,6 +64,7 @@ import { cn } from "@/lib/utils.ts";
 import AthleteFormDialog from "./_components/athlete-form-dialog.tsx";
 import CreatePlanDialog from "./_components/plan-dialogs.tsx";
 import AthleteAssessments from "./_components/athlete-assessments.tsx";
+import AthletePerformanceAnalytics from "./_components/athlete-performance-analytics.tsx";
 import VideoAnalysisSection from "./_components/video-analysis-section.tsx";
 import AthleteAttendanceCard from "./_components/athlete-attendance-card.tsx";
 
@@ -445,6 +446,12 @@ export default function AthleteDetail() {
 
       {/* Attendance */}
       <AthleteAttendanceCard athleteId={athlete._id} />
+
+      {/* Performance Analytics & Radar Profile */}
+      <AthletePerformanceAnalytics
+        athleteName={`${athlete.firstName} ${athlete.lastName}`}
+        assessmentData={assessmentData}
+      />
 
       {/* Performance Assessments */}
       <AthleteAssessments

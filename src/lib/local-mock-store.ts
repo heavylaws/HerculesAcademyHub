@@ -46,7 +46,7 @@ export interface MockDatabase {
   invites: MockInvite[];
 }
 
-const STORAGE_KEY = "peakform_mock_db_v2";
+const STORAGE_KEY = "peakform_mock_db_v3";
 const PERSONA_KEY = "peakform_mock_persona_id";
 
 function getInitialDb(): MockDatabase {
@@ -229,6 +229,13 @@ class LocalMockStore {
   // ─────────────────────────────────────────────────────────────────────────────
   // Query Execution
   // ─────────────────────────────────────────────────────────────────────────────
+  public executeQuery(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): unknown {
+    return this.evaluateQuery(name, args);
+  }
+
   public evaluateQuery(
     name: string,
     args: Record<string, unknown> = {},
@@ -600,9 +607,34 @@ class LocalMockStore {
 
       case "assessments:listAssessmentsForAthlete": {
         const athleteId = args.athleteId as string;
-        return this.db.assessments
+        const records = this.db.assessments
           .filter((ass) => ass.athleteId === athleteId)
-          .sort((a, b) => b.assessedOn.localeCompare(a.assessedOn));
+          .sort((a, b) => a.assessedOn.localeCompare(b.assessedOn));
+
+        const byMetric = new Map<
+          string,
+          { unit: string | undefined; points: typeof records }
+        >();
+        for (const r of records) {
+          const entry = byMetric.get(r.metric);
+          if (entry) {
+            entry.points.push(r);
+            if (r.unit) entry.unit = r.unit;
+          } else {
+            byMetric.set(r.metric, { unit: r.unit, points: [r] });
+          }
+        }
+
+        return Array.from(byMetric.entries()).map(([metric, { unit, points }]) => ({
+          metric,
+          unit,
+          points: points.map((p) => ({
+            _id: p._id,
+            assessedOn: p.assessedOn,
+            value: p.value,
+            notes: p.notes,
+          })),
+        }));
       }
 
       case "fees:listFeesForAcademy": {
@@ -818,6 +850,7 @@ class LocalMockStore {
         return null;
       }
 
+      case "attendance:setAttendance":
       case "trainingSessions:setAttendance": {
         const sessionId = args.sessionId as string;
         const athleteId = args.athleteId as string;
@@ -1124,6 +1157,7 @@ class LocalMockStore {
         return null;
       }
 
+      case "assessments:recordAssessment":
       case "assessments:addAssessment": {
         if (!academyId) throw new Error("No academy");
         const newAssessment: MockAssessment = {

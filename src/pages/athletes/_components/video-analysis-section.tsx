@@ -15,7 +15,9 @@ import {
   Trash2,
   TrendingUp,
   Video,
+  Maximize2,
 } from "lucide-react";
+import VideoAssessmentStudio from "./video-assessment-studio.tsx";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -179,9 +181,11 @@ function FeedbackSection({ feedback }: { feedback: Feedback }) {
 function AnalysisCard({
   analysis,
   canManage,
+  onOpenStudio,
 }: {
   analysis: VideoAnalysis;
   canManage: boolean;
+  onOpenStudio: (analysis: VideoAnalysis) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const deleteAnalysis = useMutation(api.videoAnalyses.deleteAnalysis);
@@ -226,7 +230,16 @@ function AnalysisCard({
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
+              onClick={() => onOpenStudio(analysis)}
+            >
+              <Maximize2 className="size-3" />
+              Motion Studio
+            </Button>
             {analysis.status === "complete" && analysis.feedback && (
               <Button
                 variant="ghost"
@@ -328,6 +341,8 @@ export default function VideoAnalysisSection({
   isLoading: boolean;
 }) {
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedStudioAnalysis, setSelectedStudioAnalysis] =
+    useState<VideoAnalysis | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -383,7 +398,12 @@ export default function VideoAnalysisSection({
       ) : (
         <div className="flex flex-col gap-3">
           {analyses.map((a) => (
-            <AnalysisCard key={a._id} analysis={a} canManage={canManage} />
+            <AnalysisCard
+              key={a._id}
+              analysis={a}
+              canManage={canManage}
+              onOpenStudio={setSelectedStudioAnalysis}
+            />
           ))}
         </div>
       )}
@@ -393,6 +413,16 @@ export default function VideoAnalysisSection({
           open={uploadOpen}
           onOpenChange={setUploadOpen}
           athleteId={athleteId}
+        />
+      )}
+
+      {selectedStudioAnalysis && (
+        <VideoAssessmentStudio
+          open={Boolean(selectedStudioAnalysis)}
+          onOpenChange={(open) => !open && setSelectedStudioAnalysis(null)}
+          primaryAnalysis={selectedStudioAnalysis}
+          allAnalyses={analyses}
+          athleteName="Athlete"
         />
       )}
     </div>

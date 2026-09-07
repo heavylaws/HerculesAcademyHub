@@ -11,6 +11,7 @@ import {
   Shield,
   UserRound,
   Users,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -60,6 +61,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/athletes", label: "Athletes", icon: UserRound },
     { to: "/teams", label: "Teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
+    { to: "/video-hub", label: "Video Hub", icon: Video },
     { to: "/staff", label: "Staff", icon: Users },
     { to: "/finance", label: "Fees", icon: DollarSign },
     { to: "/invoices", label: "Invoices", icon: FileText },
@@ -69,6 +71,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/athletes", label: "Athletes", icon: UserRound },
     { to: "/teams", label: "Teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
+    { to: "/video-hub", label: "Video Hub", icon: Video },
     { to: "/staff", label: "Staff", icon: Users },
   ],
   accounting: [
@@ -81,6 +84,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/athletes", label: "My profile", icon: UserRound },
     { to: "/teams", label: "My teams", icon: Shield },
     { to: "/schedule", label: "Schedule", icon: Calendar },
+    { to: "/video-hub", label: "Video Hub", icon: Video },
     { to: "/finance/my-fees", label: "My fees", icon: DollarSign },
   ],
 };
