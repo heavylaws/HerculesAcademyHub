@@ -30,7 +30,7 @@ export default function AdminBillingPage() {
   const data = useQuery(api.invoices.adminBillingOverview, {});
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold">Billing Overview</h1>
@@ -232,6 +232,6 @@ export default function AdminBillingPage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 }

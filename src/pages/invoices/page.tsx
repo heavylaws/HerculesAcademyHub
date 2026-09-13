@@ -538,7 +538,7 @@ export default function InvoicesPage() {
     setStatusFilter((prev) => (prev === s ? undefined : s));
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -769,6 +769,6 @@ export default function InvoicesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AppLayout>
+    </>
   );
 }

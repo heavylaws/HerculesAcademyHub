@@ -24,10 +24,15 @@ export function CheckInSuccessModal({
   onDismiss,
 }: CheckInSuccessModalProps) {
   const [countdown, setCountdown] = useState(3);
+  const [currentRecordedAt, setCurrentRecordedAt] = useState<string | null>(null);
+
+  if (data && data.recordedAt !== currentRecordedAt) {
+    setCurrentRecordedAt(data.recordedAt);
+    setCountdown(3);
+  }
 
   useEffect(() => {
     if (!data) return;
-    setCountdown(3);
 
     const timer = setInterval(() => {
       setCountdown((prev) => {

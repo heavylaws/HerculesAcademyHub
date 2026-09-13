@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   KeyRound,
   LayoutGrid,
+  Loader2,
   MonitorCheck,
   Sparkles,
   Users,
@@ -18,6 +19,10 @@ import { Card } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { playCheckInChime } from "@/lib/audio-chime.ts";
+import {
+  enqueueOfflineCheckIn,
+  flushOfflineQueue,
+} from "@/lib/kiosk-offline-queue.ts";
 import { KioskHeader } from "./_components/kiosk-header.tsx";
 import {
   CheckInSuccessModal,
@@ -34,10 +39,11 @@ export default function KioskPage() {
   const { sessionId: paramSessionId } = useParams<{ sessionId?: string }>();
   const navigate = useNavigate();
 
-  const todaySessions = useQuery(api.trainingSessions.listTodaySessions) ?? [];
+  const todaySessions = useQuery(api.trainingSessions.listTodaySessions);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [successData, setSuccessData] = useState<CheckInSuccessData | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<"roster" | "keypad" | "monitor">(
     "roster",
   );
@@ -46,7 +52,7 @@ export default function KioskPage() {
   const activeSessionId = useMemo(() => {
     if (paramSessionId) return paramSessionId;
     if (selectedSessionId) return selectedSessionId;
-    if (todaySessions.length > 0) return todaySessions[0]._id;
+    if (todaySessions && todaySessions.length > 0) return todaySessions[0]._id;
     return null;
   }, [paramSessionId, selectedSessionId, todaySessions]);
 
@@ -61,8 +67,76 @@ export default function KioskPage() {
   const undoCheckInMutation = useMutation(api.trainingSessions.undoCheckIn);
   const setAttendanceMutation = useMutation(api.trainingSessions.setAttendance);
 
+  const handleSyncOffline = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const res = await flushOfflineQueue(async (args) => {
+        return await checkInMutation({
+          sessionId: args.sessionId as Id<"trainingSessions">,
+          athleteId: args.athleteId as Id<"athletes"> | undefined,
+          pin: args.pin,
+        });
+      });
+      if (res.synced > 0) {
+        toast.success(`Synced ${res.synced} offline check-in${res.synced > 1 ? "s" : ""}`);
+      }
+      if (res.failed > 0) {
+        toast.error(`Could not sync ${res.failed} check-in(s)`);
+      }
+    } catch {
+      toast.error("Offline sync encountered an error");
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [checkInMutation]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      handleSyncOffline();
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [handleSyncOffline]);
+
   const handleCheckIn = async (athleteId?: string, pin?: string) => {
     if (!activeSessionId) return false;
+
+    const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+    if (!isOnline) {
+      const rosterAthlete = athleteId
+        ? kioskData?.roster.find((a) => a._id === athleteId)
+        : undefined;
+      const athleteName = rosterAthlete
+        ? `${rosterAthlete.firstName} ${rosterAthlete.lastName}`
+        : pin
+        ? `Athlete (PIN ${pin})`
+        : "Athlete";
+
+      enqueueOfflineCheckIn({
+        sessionId: activeSessionId,
+        athleteId,
+        pin,
+        athleteName,
+      });
+
+      if (audioEnabled) {
+        playCheckInChime();
+      }
+
+      setSuccessData({
+        athlete: {
+          _id: (athleteId ?? "ath_offline") as Id<"athletes">,
+          firstName: rosterAthlete?.firstName ?? "Athlete",
+          lastName: rosterAthlete?.lastName ?? (pin ? `(PIN ${pin})` : ""),
+        },
+        status: "present",
+        recordedAt: new Date().toISOString(),
+        sessionTitle: `${kioskData?.session.title ?? "Training Session"} (Offline Saved)`,
+      });
+
+      toast.warning("Checked in offline. Will sync automatically once reconnected.");
+      return true;
+    }
 
     try {
       const res = await checkInMutation({
@@ -90,7 +164,24 @@ export default function KioskPage() {
       }
       return false;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Check-in failed";
+      // If network error occurred mid-request, enqueue offline
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        msg.toLowerCase().includes("network") ||
+        msg.toLowerCase().includes("fetch") ||
+        !navigator.onLine
+      ) {
+        enqueueOfflineCheckIn({
+          sessionId: activeSessionId,
+          athleteId,
+          pin,
+        });
+        if (audioEnabled) {
+          playCheckInChime();
+        }
+        toast.warning("Network dropped. Check-in saved offline.");
+        return true;
+      }
       toast.error(msg);
       return false;
     }
@@ -146,6 +237,15 @@ export default function KioskPage() {
     toast.success(`Marked ${unrecorded.length} athletes as absent`);
   };
 
+  // Loading state
+  if (todaySessions === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   // If no session found
   if (!activeSessionId && todaySessions.length === 0) {
     return (
@@ -190,6 +290,8 @@ export default function KioskPage() {
         }}
         audioEnabled={audioEnabled}
         onToggleAudio={() => setAudioEnabled(!audioEnabled)}
+        onSyncOffline={handleSyncOffline}
+        isSyncing={isSyncing}
       />
 
       {/* Main Body */}

@@ -36,7 +36,7 @@ export default function MessagesPage() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="flex h-[calc(100vh-4.25rem)] w-full overflow-hidden rounded-xl border bg-background shadow-xs">
         {/* Left: Conversation List */}
         <div
@@ -94,6 +94,6 @@ export default function MessagesPage() {
         initialContextType={initialContextType}
         initialContextTitle={initialContextTitle}
       />
-    </AppLayout>
+    </>
   );
 }

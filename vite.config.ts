@@ -28,6 +28,21 @@ export default defineConfig({
     ],
   },
   build: {
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/recharts")) {
+            return "vendor-recharts";
+          }
+          if (id.includes("node_modules/convex")) {
+            return "vendor-convex";
+          }
+          if (id.includes("node_modules/lucide-react")) {
+            return "vendor-icons";
+          }
+        },
+      },
+    },
   },
 });

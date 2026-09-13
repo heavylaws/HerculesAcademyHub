@@ -14,7 +14,12 @@ export interface MockUser {
   name: string;
   email: string;
   role?:
-    "platform_admin" | "academy_admin" | "coach" | "athlete" | "accounting";
+    | "platform_admin"
+    | "academy_admin"
+    | "coach"
+    | "athlete"
+    | "accounting"
+    | "guardian";
   academyId?: string;
   tokenIdentifier: string;
 }
@@ -23,6 +28,8 @@ export interface MockAthlete {
   _id: string;
   academyId: string;
   userId?: string;
+  guardianUserId?: string;
+  guardianEmail?: string;
   firstName: string;
   lastName: string;
   dateOfBirth?: string;
@@ -306,6 +313,14 @@ export const SEED_USERS: MockUser[] = [
     academyId: "acad_hercules",
     tokenIdentifier: "mock|user_athlete_elena",
   },
+  {
+    _id: "usr_guardian_mary",
+    name: "Mary Vance",
+    email: "mary.vance@gmail.com",
+    role: "guardian",
+    academyId: "acad_hercules",
+    tokenIdentifier: "mock|user_guardian_mary",
+  },
 ];
 
 export const SEED_ATHLETES: MockAthlete[] = [
@@ -313,6 +328,8 @@ export const SEED_ATHLETES: MockAthlete[] = [
     _id: "ath_marcus",
     academyId: "acad_hercules",
     userId: "usr_athlete",
+    guardianUserId: "usr_guardian_mary",
+    guardianEmail: "mary.vance@gmail.com",
     firstName: "Marcus",
     lastName: "Vance",
     dateOfBirth: "2004-05-12",

@@ -7,6 +7,7 @@ export const userRoleValidator = v.union(
   v.literal("coach"),
   v.literal("athlete"),
   v.literal("accounting"),
+  v.literal("guardian"),
 );
 
 export const invites = defineTable({

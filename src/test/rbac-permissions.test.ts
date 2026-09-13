@@ -47,6 +47,17 @@ const ROLE_PERMISSIONS: Record<UserRole, { allowed: string[]; forbidden: string[
     allowed: ["/", "/athletes", "/teams", "/schedule", "/video-hub", "/finance/my-fees"],
     forbidden: ["/admin/academies", "/admin/billing", "/staff", "/finance", "/invoices"],
   },
+  guardian: {
+    allowed: ["/", "/guardian/athletes", "/schedule", "/finance/my-fees"],
+    forbidden: [
+      "/admin/academies",
+      "/admin/billing",
+      "/staff",
+      "/finance",
+      "/invoices",
+      "/video-hub",
+    ],
+  },
 };
 
 function isRouteAllowed(role: UserRole, path: string): boolean {
@@ -138,6 +149,25 @@ describe("RBAC Permissions & Route Authorization Suite", () => {
 
     it("restricts coaching features, staff administration, and platform configs", () => {
       expect(isRouteAllowed(role, "/staff")).toBe(false);
+      expect(isRouteAllowed(role, "/video-hub")).toBe(false);
+      expect(isRouteAllowed(role, "/admin/academies")).toBe(false);
+    });
+  });
+
+  describe("Parent / Guardian access", () => {
+    const role: UserRole = "guardian";
+
+    it("allows guardian athletes portal, schedule, and family fee payment", () => {
+      expect(isRouteAllowed(role, "/")).toBe(true);
+      expect(isRouteAllowed(role, "/guardian/athletes")).toBe(true);
+      expect(isRouteAllowed(role, "/schedule")).toBe(true);
+      expect(isRouteAllowed(role, "/finance/my-fees")).toBe(true);
+    });
+
+    it("restricts internal staff directory, general roster management, and billing admin", () => {
+      expect(isRouteAllowed(role, "/staff")).toBe(false);
+      expect(isRouteAllowed(role, "/finance")).toBe(false);
+      expect(isRouteAllowed(role, "/invoices")).toBe(false);
       expect(isRouteAllowed(role, "/video-hub")).toBe(false);
       expect(isRouteAllowed(role, "/admin/academies")).toBe(false);
     });

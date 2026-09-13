@@ -56,7 +56,7 @@ export interface MockDatabase {
   messages: MockMessage[];
 }
 
-const STORAGE_KEY = "peakform_mock_db_v6";
+const STORAGE_KEY = "peakform_mock_db_v7";
 const PERSONA_KEY = "peakform_mock_persona_id";
 
 function getInitialDb(): MockDatabase {
@@ -109,7 +109,26 @@ class LocalMockStore {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
         return initial;
       }
-      return JSON.parse(raw);
+      const parsed: MockDatabase = JSON.parse(raw);
+      // Reconcile any missing seed users (e.g. guardian persona)
+      for (const seedUser of SEED_USERS) {
+        if (!parsed.users.some((u) => u._id === seedUser._id)) {
+          parsed.users.push(seedUser);
+        }
+      }
+      // Reconcile athlete guardian associations
+      for (const seedAth of SEED_ATHLETES) {
+        const existing = parsed.athletes.find((a) => a._id === seedAth._id);
+        if (existing) {
+          if (seedAth.guardianUserId && !existing.guardianUserId) {
+            existing.guardianUserId = seedAth.guardianUserId;
+          }
+          if (seedAth.guardianEmail && !existing.guardianEmail) {
+            existing.guardianEmail = seedAth.guardianEmail;
+          }
+        }
+      }
+      return parsed;
     } catch {
       return getInitialDb();
     }
@@ -366,6 +385,84 @@ class LocalMockStore {
           };
         }
 
+        // Guardian role
+        if (user.role === "guardian") {
+          const athlete = this.db.athletes.find(
+            (a) =>
+              a.guardianUserId === user._id ||
+              (user.email && a.guardianEmail === user.email),
+          );
+          if (!athlete) {
+            return { role: "guardian" as const, noAthleteRecord: true as const };
+          }
+
+          const memberships = this.db.teamMembers.filter(
+            (m) => m.athleteId === athlete._id,
+          );
+          const myTeams = memberships
+            .map((m) => this.db.teams.find((t) => t._id === m.teamId))
+            .filter(Boolean) as MockTeam[];
+
+          const teamIds = new Set(myTeams.map((t) => t._id));
+          const allMySessions = this.db.trainingSessions.filter((s) =>
+            teamIds.has(s.teamId),
+          );
+          const nowIso = new Date().toISOString();
+          const upcomingSessions = allMySessions
+            .filter((s) => s.startsAt >= nowIso)
+            .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+            .slice(0, 8);
+
+          const myPlans = this.db.trainingPlans.filter(
+            (p) => p.athleteId === athlete._id,
+          );
+          const activePlans = myPlans.filter((p) => p.status === "active");
+
+          const recentAssessments = this.db.assessments
+            .filter((ass) => ass.athleteId === athlete._id)
+            .sort((a, b) => b.assessedOn.localeCompare(a.assessedOn))
+            .slice(0, 6);
+
+          const fees = this.db.athleteFees.filter((f) => f.athleteId === athlete._id);
+          const totalBalanceDue = fees.reduce((sum, fee) => {
+            const payments = this.db.feePayments.filter((p) => p.feeId === fee._id);
+            const totalPaid = payments.reduce((s, p) => s + p.amountPaid, 0);
+            return sum + Math.max(0, fee.amountDue - totalPaid);
+          }, 0);
+
+          return {
+            role: "guardian" as const,
+            athleteId: athlete._id,
+            athleteName: `${athlete.firstName} ${athlete.lastName}`,
+            sport: athlete.sport,
+            teamCount: myTeams.length,
+            upcomingSessionCount: upcomingSessions.length,
+            activePlanCount: activePlans.length,
+            totalBalanceDue,
+            upcomingSessions: upcomingSessions.map((s) => ({
+              _id: s._id,
+              title: s.title,
+              startsAt: s.startsAt,
+              durationMinutes: s.durationMinutes,
+              location: s.location,
+              teamName: myTeams.find((t) => t._id === s.teamId)?.name ?? "Team",
+            })),
+            activePlans: activePlans.slice(0, 4).map((p) => ({
+              _id: p._id,
+              title: p.title,
+              startDate: p.startDate,
+              endDate: p.endDate,
+            })),
+            recentAssessments: recentAssessments.map((a) => ({
+              _id: a._id,
+              metric: a.metric,
+              value: a.value,
+              unit: a.unit,
+              assessedOn: a.assessedOn,
+            })),
+          };
+        }
+
         // Athlete role
         const athlete = this.db.athletes.find(
           (a) =>
@@ -455,6 +552,22 @@ class LocalMockStore {
           const teamIds = new Set(
             this.db.teamMembers
               .filter((m) => m.athleteId === athlete._id)
+              .map((m) => m.teamId),
+          );
+          return withTeam.filter((s) => teamIds.has(s.teamId));
+        }
+
+        if (user?.role === "guardian") {
+          const guardianAthletes = this.db.athletes.filter(
+            (a) =>
+              a.guardianUserId === user._id ||
+              (user.email && a.guardianEmail?.toLowerCase() === user.email.toLowerCase()),
+          );
+          if (guardianAthletes.length === 0) return [];
+          const athIds = new Set(guardianAthletes.map((a) => a._id));
+          const teamIds = new Set(
+            this.db.teamMembers
+              .filter((m) => athIds.has(m.athleteId))
               .map((m) => m.teamId),
           );
           return withTeam.filter((s) => teamIds.has(s.teamId));
@@ -628,13 +741,30 @@ class LocalMockStore {
         const attended = present + late;
         const rate = total > 0 ? Math.round((attended / total) * 100) : 0;
 
+        const sessionMap = new Map(sessions.map((s) => [s._id, s]));
+        const recentSessions = records
+          .map((r) => {
+            const s = sessionMap.get(r.sessionId);
+            if (!s) return null;
+            return {
+              sessionId: r.sessionId,
+              title: s.title,
+              startsAt: s.startsAt,
+              status: r.status as "present" | "absent" | "excused" | "late" | "unrecorded",
+            };
+          })
+          .filter(Boolean)
+          .slice(0, 5);
+
         return {
           totalSessions: total,
           present,
           late,
           excused,
           absent,
+          unrecorded: 0,
           attendanceRate: rate,
+          recentSessions,
         };
       }
 
@@ -660,7 +790,16 @@ class LocalMockStore {
 
       case "teams:listTeams": {
         if (!academyId) return [];
-        return this.db.teams.filter((t) => t.academyId === academyId);
+        const teams = this.db.teams.filter((t) => t.academyId === academyId);
+        return teams.map((team) => {
+          const memberCount = this.db.teamMembers.filter(
+            (m) => m.teamId === team._id,
+          ).length;
+          return {
+            ...team,
+            memberCount,
+          };
+        });
       }
 
       case "teams:getTeam": {
@@ -706,6 +845,15 @@ class LocalMockStore {
 
       case "athletes:getAthleteByUserId": {
         if (!user) return null;
+        if (user.role === "guardian") {
+          return (
+            this.db.athletes.find(
+              (a) =>
+                a.guardianUserId === user._id ||
+                (user.email && a.guardianEmail?.toLowerCase() === user.email.toLowerCase()),
+            ) ?? null
+          );
+        }
         return (
           this.db.athletes.find(
             (a) =>
@@ -1709,32 +1857,6 @@ class LocalMockStore {
           this.saveDb();
           this.notifyAll();
         }
-        return null;
-      }
-
-      case "trainingSessions:setAttendance": {
-        const sessionId = args.sessionId as string;
-        const athleteId = args.athleteId as string;
-        const status = args.status as "present" | "late" | "excused" | "absent";
-        const existing = this.db.attendanceRecords.find(
-          (r) => r.sessionId === sessionId && r.athleteId === athleteId,
-        );
-        if (existing) {
-          existing.status = status;
-          existing.markedAt = nowIso;
-          existing.markedBy = user?._id ?? "usr_coach";
-        } else {
-          this.db.attendanceRecords.push({
-            _id: `att_${Date.now()}_${athleteId}`,
-            sessionId,
-            athleteId,
-            status,
-            markedAt: nowIso,
-            markedBy: user?._id ?? "usr_coach",
-          });
-        }
-        this.saveDb();
-        this.notifyAll();
         return null;
       }
 

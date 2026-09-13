@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
+  Activity,
   Play,
   Pause,
   RotateCcw,
@@ -19,6 +20,12 @@ import {
   Video,
   Layers,
 } from "lucide-react";
+import { VideoPoseTracker } from "@/lib/pose-detection/pose-engine.ts";
+import {
+  drawSkeleton,
+  drawKinematicCallouts,
+} from "@/lib/pose-detection/kinematics.ts";
+import type { KinematicAngles } from "@/lib/pose-detection/types.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -95,12 +102,114 @@ export default function VideoAssessmentStudio({
   ]);
   const [newCueText, setNewCueText] = useState("");
 
+  // AI Pose Detection State
+  const [isPoseOverlayEnabled, setIsPoseOverlayEnabled] = useState(false);
+  const [kinematicsState, setKinematicsState] = useState<KinematicAngles | null>(null);
+  const poseTrackerRef = useRef<VideoPoseTracker>(new VideoPoseTracker());
+
+  const renderPoseFrame = useCallback(
+    (timestamp: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Restore user annotations if any exist
+      if (markupHistory.length > 0) {
+        const last = markupHistory[markupHistory.length - 1];
+        ctx.putImageData(last, 0, 0);
+      }
+
+      if (!isPoseOverlayEnabled) {
+        setKinematicsState(null);
+        return;
+      }
+
+      const { frame, kinematics } = poseTrackerRef.current.processFrame(timestamp);
+      setKinematicsState(kinematics);
+
+      if (frame && frame.landmarks) {
+        drawSkeleton(ctx, frame.landmarks, canvas.width, canvas.height, {
+          glowColor: "#10b981",
+          jointColor: "#38bdf8",
+          boneWidth: 2.5,
+        });
+        if (kinematics) {
+          drawKinematicCallouts(
+            ctx,
+            frame.landmarks,
+            kinematics,
+            canvas.width,
+            canvas.height,
+          );
+        }
+      }
+    },
+    [isPoseOverlayEnabled, markupHistory],
+  );
+
+  // Playback animation loop
+  useEffect(() => {
+    if (!isPlaying) return;
+    let animId: number;
+
+    if (videoRef.current && primaryAnalysis.videoUrl) {
+      const loop = () => {
+        if (videoRef.current) {
+          const t = videoRef.current.currentTime;
+          setCurrentTime(t);
+          if (isPoseOverlayEnabled) {
+            renderPoseFrame(t);
+          }
+        }
+        animId = requestAnimationFrame(loop);
+      };
+      animId = requestAnimationFrame(loop);
+    } else {
+      // Simulation loop for mock/offline preview
+      let lastTime = performance.now();
+      const simLoop = (now: number) => {
+        const dt = ((now - lastTime) / 1000) * playbackRate;
+        lastTime = now;
+        setCurrentTime((prev) => {
+          const maxT = duration || 10;
+          const next = prev + dt;
+          if (next >= maxT) {
+            setIsPlaying(false);
+            return 0;
+          }
+          if (isPoseOverlayEnabled) {
+            renderPoseFrame(next);
+          }
+          return next;
+        });
+        animId = requestAnimationFrame(simLoop);
+      };
+      animId = requestAnimationFrame(simLoop);
+    }
+
+    return () => cancelAnimationFrame(animId);
+  }, [
+    isPlaying,
+    isPoseOverlayEnabled,
+    primaryAnalysis.videoUrl,
+    playbackRate,
+    duration,
+    renderPoseFrame,
+  ]);
+
   const compareAnalysis = allAnalyses.find((a) => a._id === compareAnalysisId);
 
   // Video time updates
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+      const t = videoRef.current.currentTime;
+      setCurrentTime(t);
+      if (isPoseOverlayEnabled) {
+        renderPoseFrame(t);
+      }
     }
   };
 
@@ -111,15 +220,18 @@ export default function VideoAssessmentStudio({
   };
 
   const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-      if (compareVideoRef.current) compareVideoRef.current.pause();
-      setIsPlaying(false);
+    if (videoRef.current && primaryAnalysis.videoUrl) {
+      if (isPlaying) {
+        videoRef.current.pause();
+        if (compareVideoRef.current) compareVideoRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        videoRef.current.play();
+        if (compareVideoRef.current) compareVideoRef.current.play();
+        setIsPlaying(true);
+      }
     } else {
-      videoRef.current.play();
-      if (compareVideoRef.current) compareVideoRef.current.play();
-      setIsPlaying(true);
+      setIsPlaying((prev) => !prev);
     }
   };
 
@@ -130,12 +242,66 @@ export default function VideoAssessmentStudio({
   };
 
   const stepFrame = (frames: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.pause();
+    const maxT = duration || 10;
+    const target = Math.max(0, Math.min(maxT, currentTime + frames * 0.04));
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = target;
+    }
     setIsPlaying(false);
-    // Approximate frame length at 25fps = 0.04s
-    const target = Math.max(0, Math.min(duration, videoRef.current.currentTime + frames * 0.04));
-    videoRef.current.currentTime = target;
+    setCurrentTime(target);
+    if (isPoseOverlayEnabled) {
+      renderPoseFrame(target);
+    }
+  };
+
+  const togglePoseOverlay = () => {
+    const next = !isPoseOverlayEnabled;
+    setIsPoseOverlayEnabled(next);
+    if (next) {
+      toast.success("AI Pose Kinematics tracking active");
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          const { frame, kinematics } = poseTrackerRef.current.processFrame(currentTime);
+          setKinematicsState(kinematics);
+          drawSkeleton(ctx, frame.landmarks, canvas.width, canvas.height);
+          if (kinematics) {
+            drawKinematicCallouts(ctx, frame.landmarks, kinematics, canvas.width, canvas.height);
+          }
+        }
+      }
+    } else {
+      toast.info("AI Pose Kinematics overlay hidden");
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (markupHistory.length > 0) {
+            ctx.putImageData(markupHistory[markupHistory.length - 1], 0, 0);
+          }
+        }
+      }
+      setKinematicsState(null);
+    }
+  };
+
+  const handleLogBiometricsToCue = () => {
+    if (!kinematicsState) return;
+    const text = `Kinematics: Knee drive ${kinematicsState.kneeDriveAngle.degrees}° (${kinematicsState.kneeDriveAngle.ratingLabel}), Shin angle ${kinematicsState.shinInclinationAngle.degrees}°, Torso lean ${kinematicsState.torsoLeanAngle.degrees}°.`;
+    const newCue: CoachCue = {
+      id: `cue_kinematics_${cues.length + 1}_${Math.round(currentTime * 100)}`,
+      timeSeconds: Math.round(currentTime * 10) / 10,
+      text,
+      category:
+        kinematicsState.kneeDriveAngle.rating === "optimal"
+          ? "strength"
+          : "improvement",
+    };
+    setCues((prev) => [...prev, newCue]);
+    toast.success(`Logged kinematics cue at ${formatSeconds(newCue.timeSeconds)}`);
   };
 
   // Canvas drawing handlers
@@ -205,7 +371,7 @@ export default function VideoAssessmentStudio({
   const addCueAtCurrentTime = () => {
     if (!newCueText.trim()) return;
     const newCue: CoachCue = {
-      id: `cue_${Date.now()}`,
+      id: `cue_${cues.length + 1}_${Math.round(currentTime * 100)}`,
       timeSeconds: Math.round(currentTime * 10) / 10,
       text: newCueText.trim(),
       category: "note",
@@ -224,7 +390,7 @@ export default function VideoAssessmentStudio({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col p-6 overflow-hidden bg-background/95 backdrop-blur-xl border-border">
+      <DialogContent className="sm:max-w-6xl w-[95vw] h-[90vh] flex flex-col p-6 overflow-hidden bg-background/95 backdrop-blur-xl border-border">
         <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b">
           <div>
             <DialogTitle className="text-xl font-display font-bold flex items-center gap-2">
@@ -394,6 +560,21 @@ export default function VideoAssessmentStudio({
 
                 {/* Biomechanics Markup Tools */}
                 <div className="flex items-center gap-1.5">
+                  <Button
+                    variant={isPoseOverlayEnabled ? "default" : "secondary"}
+                    size="sm"
+                    className={`h-7 px-2.5 gap-1.5 text-xs font-semibold ${
+                      isPoseOverlayEnabled
+                        ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                        : ""
+                    }`}
+                    onClick={togglePoseOverlay}
+                  >
+                    <Activity className="size-3" />
+                    AI Pose Skeleton
+                  </Button>
+
+                  <span className="text-[11px] text-muted-foreground font-medium mx-1">|</span>
                   <span className="text-[11px] text-muted-foreground font-medium mr-1">Markup:</span>
                   <Button
                     variant={activeTool === "draw" ? "default" : "outline"}
@@ -432,6 +613,139 @@ export default function VideoAssessmentStudio({
                 </div>
               </div>
             </div>
+
+            {/* Real-Time Biomechanics Kinematics HUD */}
+            {isPoseOverlayEnabled && kinematicsState && (
+              <div className="rounded-xl border border-emerald-500/30 bg-card p-3 flex flex-col gap-2.5 shadow-sm animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex size-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full size-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <Sparkles className="size-3.5" />
+                      Live Kinematics Biometrics HUD
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-300 font-mono py-0">
+                      {kinematicsState.primarySide === "right" ? "Right Sagittal Profile" : "Left Sagittal Profile"}
+                    </Badge>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-6 text-xs gap-1 font-semibold text-emerald-400 hover:text-emerald-300"
+                    onClick={handleLogBiometricsToCue}
+                  >
+                    <Plus className="size-3" />
+                    Log Kinematics to Cue
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* Knee Drive Angle */}
+                  <div className="rounded-lg border bg-muted/20 p-2 flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground font-medium">Knee Drive</span>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[9px] px-1 py-0 ${
+                          kinematicsState.kneeDriveAngle.rating === "optimal"
+                            ? "bg-emerald-500/15 text-emerald-400"
+                            : kinematicsState.kneeDriveAngle.rating === "acceptable"
+                            ? "bg-amber-500/15 text-amber-400"
+                            : "bg-rose-500/15 text-rose-400"
+                        }`}
+                      >
+                        {kinematicsState.kneeDriveAngle.rating}
+                      </Badge>
+                    </div>
+                    <span className="font-mono text-lg font-bold text-foreground">
+                      {kinematicsState.kneeDriveAngle.degrees}°
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {kinematicsState.kneeDriveAngle.ratingLabel}
+                    </span>
+                  </div>
+
+                  {/* Shin Inclination */}
+                  <div className="rounded-lg border bg-muted/20 p-2 flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground font-medium">Shin Angle</span>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[9px] px-1 py-0 ${
+                          kinematicsState.shinInclinationAngle.rating === "optimal"
+                            ? "bg-emerald-500/15 text-emerald-400"
+                            : kinematicsState.shinInclinationAngle.rating === "acceptable"
+                            ? "bg-amber-500/15 text-amber-400"
+                            : "bg-rose-500/15 text-rose-400"
+                        }`}
+                      >
+                        {kinematicsState.shinInclinationAngle.rating}
+                      </Badge>
+                    </div>
+                    <span className="font-mono text-lg font-bold text-foreground">
+                      {kinematicsState.shinInclinationAngle.degrees}°
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {kinematicsState.shinInclinationAngle.ratingLabel}
+                    </span>
+                  </div>
+
+                  {/* Torso Lean */}
+                  <div className="rounded-lg border bg-muted/20 p-2 flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground font-medium">Torso Lean</span>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[9px] px-1 py-0 ${
+                          kinematicsState.torsoLeanAngle.rating === "optimal"
+                            ? "bg-emerald-500/15 text-emerald-400"
+                            : kinematicsState.torsoLeanAngle.rating === "acceptable"
+                            ? "bg-amber-500/15 text-amber-400"
+                            : "bg-rose-500/15 text-rose-400"
+                        }`}
+                      >
+                        {kinematicsState.torsoLeanAngle.rating}
+                      </Badge>
+                    </div>
+                    <span className="font-mono text-lg font-bold text-foreground">
+                      {kinematicsState.torsoLeanAngle.degrees}°
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {kinematicsState.torsoLeanAngle.ratingLabel}
+                    </span>
+                  </div>
+
+                  {/* Arm Carriage */}
+                  <div className="rounded-lg border bg-muted/20 p-2 flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground font-medium">Arm Carriage</span>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[9px] px-1 py-0 ${
+                          kinematicsState.armDriveAngle.rating === "optimal"
+                            ? "bg-emerald-500/15 text-emerald-400"
+                            : kinematicsState.armDriveAngle.rating === "acceptable"
+                            ? "bg-amber-500/15 text-amber-400"
+                            : "bg-rose-500/15 text-rose-400"
+                        }`}
+                      >
+                        {kinematicsState.armDriveAngle.rating}
+                      </Badge>
+                    </div>
+                    <span className="font-mono text-lg font-bold text-foreground">
+                      {kinematicsState.armDriveAngle.degrees}°
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {kinematicsState.armDriveAngle.ratingLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Sidebar: AI Biomechanics Analysis & Coaching Scorecard */}

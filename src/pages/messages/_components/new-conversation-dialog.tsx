@@ -61,7 +61,7 @@ export default function NewConversationDialog({
 }: NewConversationDialogProps) {
   const { user } = useCurrentUser();
   const navigate = useNavigate();
-  const members = useQuery(api.users.listAcademyMembers, {}) ?? [];
+  const members = useQuery(api.users.listAcademyMembers, {});
   const getOrCreateConversation = useMutation(api.messages.getOrCreateConversation);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -77,6 +77,7 @@ export default function NewConversationDialog({
 
   // Eligible recipients: other academy members (excluding current user)
   const eligibleMembers = useMemo(() => {
+    if (!members) return [];
     return members.filter((m) => m._id !== user?._id);
   }, [members, user?._id]);
 

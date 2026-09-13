@@ -14,6 +14,7 @@ import {
   Video,
   Megaphone,
   MessageSquare,
+  HeartPulse,
 } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/notifications/notification-bell.tsx";
@@ -44,6 +45,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
   coach: "Coach",
   athlete: "Athlete",
   accounting: "Accounting",
+  guardian: "Parent / Guardian",
 };
 
 type NavItem = {
@@ -96,6 +98,13 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/messages", label: "Messages", icon: MessageSquare },
     { to: "/announcements", label: "Noticeboard", icon: Megaphone },
     { to: "/finance/my-fees", label: "My fees", icon: DollarSign },
+  ],
+  guardian: [
+    { to: "/", label: "Overview", icon: LayoutDashboard },
+    { to: "/guardian/athletes", label: "My Athletes", icon: HeartPulse },
+    { to: "/schedule", label: "Schedule", icon: Calendar },
+    { to: "/announcements", label: "Noticeboard", icon: Megaphone },
+    { to: "/finance/my-fees", label: "Invoices & Fees", icon: DollarSign },
   ],
 };
 

@@ -22,6 +22,8 @@ export const athletes = defineTable({
   phone: v.optional(v.string()),
   guardianName: v.optional(v.string()),
   guardianPhone: v.optional(v.string()),
+  guardianEmail: v.optional(v.string()),
+  guardianUserId: v.optional(v.id("users")),
   notes: v.optional(v.string()),
   status: v.union(v.literal("active"), v.literal("inactive")),
   checkInPin: v.optional(v.string()),
@@ -33,4 +35,5 @@ export const athletes = defineTable({
   .index("by_academy_and_email", ["academyId", "email"])
   .index("by_academy_and_pin", ["academyId", "checkInPin"])
   .index("by_email", ["email"])
-  .index("by_user", ["userId"]);
+  .index("by_user", ["userId"])
+  .index("by_guardian_user", ["guardianUserId"]);

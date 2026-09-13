@@ -181,12 +181,12 @@ export default function AthleteAttendanceCard({ athleteId }: Props) {
             </div>
 
             {/* Recent sessions strip */}
-            {stats.recentSessions.length > 0 && (
+            {(stats.recentSessions ?? []).length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <p className="text-xs font-medium text-muted-foreground mb-0.5">
                   Recent sessions
                 </p>
-                {stats.recentSessions.map((s) => {
+                {(stats.recentSessions ?? []).map((s) => {
                   const cfg = STATUS_CONFIG[s.status];
                   const Icon = cfg.icon;
                   return (

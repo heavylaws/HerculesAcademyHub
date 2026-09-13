@@ -62,14 +62,11 @@ export default function AthletePerformanceAnalytics({
   const [comparisonMetric, setComparisonMetric] = useState<string>("none");
   const [timeRange, setTimeRange] = useState<"all" | "90d" | "30d">("all");
 
-  // If selectedMetric doesn't exist in new data, sync with first available
-  useMemo(() => {
-    if (
-      assessmentData.length > 0 &&
-      !assessmentData.some((g) => g.metric === selectedMetric)
-    ) {
-      setSelectedMetric(assessmentData[0].metric);
-    }
+  // If selectedMetric doesn't exist in data, derive fallback to first available
+  const activeSelectedMetric = useMemo(() => {
+    if (assessmentData.length === 0) return selectedMetric;
+    const exists = assessmentData.some((g) => g.metric === selectedMetric);
+    return exists ? selectedMetric : assessmentData[0].metric;
   }, [assessmentData, selectedMetric]);
 
   const radarData = useMemo(() => {
@@ -83,8 +80,8 @@ export default function AthletePerformanceAnalytics({
   }, [assessmentData]);
 
   const primaryGroup = useMemo(() => {
-    return assessmentData.find((g) => g.metric === selectedMetric);
-  }, [assessmentData, selectedMetric]);
+    return assessmentData.find((g) => g.metric === activeSelectedMetric);
+  }, [assessmentData, activeSelectedMetric]);
 
   const secondaryGroup = useMemo(() => {
     if (comparisonMetric === "none") return null;
@@ -396,7 +393,7 @@ export default function AthletePerformanceAnalytics({
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">Primary:</span>
-                <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+                <Select value={activeSelectedMetric} onValueChange={setSelectedMetric}>
                   <SelectTrigger className="h-8 w-36 text-xs">
                     <SelectValue placeholder="Metric" />
                   </SelectTrigger>
@@ -421,7 +418,7 @@ export default function AthletePerformanceAnalytics({
                       None (Single Axis)
                     </SelectItem>
                     {assessmentData
-                      .filter((g) => g.metric !== selectedMetric)
+                      .filter((g) => g.metric !== activeSelectedMetric)
                       .map((g) => (
                         <SelectItem key={g.metric} value={g.metric} className="text-xs">
                           {g.metric}
@@ -458,7 +455,7 @@ export default function AthletePerformanceAnalytics({
               <div className="flex items-center gap-4 flex-wrap text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="size-2.5 rounded-full bg-emerald-500" />
-                  <span className="font-medium text-foreground">{selectedMetric}</span>
+                  <span className="font-medium text-foreground">{activeSelectedMetric}</span>
                   {primaryTrend && (
                     <span
                       className={`inline-flex items-center gap-0.5 font-semibold ${
@@ -527,7 +524,7 @@ export default function AthletePerformanceAnalytics({
                       yAxisId="left"
                       type="monotone"
                       dataKey="primaryVal"
-                      name={selectedMetric}
+                      name={activeSelectedMetric}
                       stroke="#10b981"
                       strokeWidth={2.5}
                       dot={{ r: 4, fill: "#10b981" }}

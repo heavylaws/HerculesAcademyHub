@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Id, Doc } from "@/convex/_generated/dataModel.d.ts";
-import AppLayout from "@/components/layout/app-layout.tsx";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -36,6 +35,60 @@ import { useCurrentUser } from "@/hooks/use-current-user.ts";
 import VideoAssessmentStudio, {
   type VideoAnalysisItem,
 } from "./_components/video-assessment-studio.tsx";
+
+const FALLBACK_ANALYSES: VideoAnalysisItem[] = [
+  {
+    _id: "va_sprint_1" as Id<"videoAnalyses">,
+    _creationTime: 1725800000000,
+    academyId: "acad_hercules" as Id<"academies">,
+    athleteId: "ath_marcus" as Id<"athletes">,
+    storageId: "storage_mock_1" as Id<"_storage">,
+    filename: "marcus_40m_sprint_drive_phase.mp4",
+    context: "Block start & first 3 steps drive angle",
+    status: "complete",
+    requestedAt: "2026-09-07T14:30:00.000Z",
+    completedAt: "2026-09-07T14:30:15.000Z",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    createdBy: "usr_coach" as Id<"users">,
+    feedback: {
+      summary: "Excellent low torso drive angle during initial 3 steps. Knee drive is aggressive at 84° with minimal lateral sway.",
+      strengths: ["Drive phase shin angle (42°)", "Force vector alignment", "Arm carriage cadence"],
+      improvements: ["Slight overstride on step 4", "Head rises too early"],
+      metrics: [
+        { label: "Block Exit Velocity", value: "4.8 m/s" },
+        { label: "Ground Contact Time", value: "0.108 s" },
+        { label: "Torso Inclination", value: "44°" },
+        { label: "Stride Frequency", value: "4.4 Hz" },
+      ],
+      recommendations: ["Maintain downward visual focus for 10m", "Incorporate resisted sled pushes"],
+    },
+  },
+  {
+    _id: "va_sprint_2" as Id<"videoAnalyses">,
+    _creationTime: 1725700000000,
+    academyId: "acad_hercules" as Id<"academies">,
+    athleteId: "ath_marcus" as Id<"athletes">,
+    storageId: "storage_mock_2" as Id<"_storage">,
+    filename: "marcus_upright_mechanics_slowmo.mp4",
+    context: "Top-end speed mechanics at 60m mark",
+    status: "complete",
+    requestedAt: "2026-09-05T09:15:00.000Z",
+    completedAt: "2026-09-05T09:15:20.000Z",
+    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    createdBy: "usr_coach" as Id<"users">,
+    feedback: {
+      summary: "High knee lift and tall posture observed. Dorsiflexion prior to ground contact is solid.",
+      strengths: ["Vertical posture (1.5° lean)", "Active pawback action"],
+      improvements: ["Heel recovery loops slightly wide behind hip"],
+      metrics: [
+        { label: "Top Speed", value: "10.4 m/s" },
+        { label: "Step Length", value: "2.18 m" },
+        { label: "Flight Time", value: "0.124 s" },
+      ],
+      recommendations: ["Mini-hurdle wicket drills to tighten backside mechanics"],
+    },
+  },
+];
 
 export default function VideoHubPage() {
   const { user } = useCurrentUser();
@@ -59,61 +112,8 @@ export default function VideoHubPage() {
   // In offline mock mode, we can also load directly from mock store if available
   const allAnalyses: VideoAnalysisItem[] = useMemo(() => {
     if (analysesQuery) return analysesQuery;
-    // Fallback sample mock analyses for quick demonstration
-    return [
-      {
-        _id: "va_sprint_1" as Id<"videoAnalyses">,
-        _creationTime: Date.now() - 3600000,
-        academyId: "acad_hercules" as Id<"academies">,
-        athleteId: (athletes?.[0]?._id ?? "ath_marcus") as Id<"athletes">,
-        storageId: "storage_mock_1" as Id<"_storage">,
-        filename: "marcus_40m_sprint_drive_phase.mp4",
-        context: "Block start & first 3 steps drive angle",
-        status: "complete",
-        requestedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        completedAt: new Date(Date.now() - 86400000 * 2 + 15000).toISOString(),
-        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-        createdBy: "usr_coach" as Id<"users">,
-        feedback: {
-          summary: "Excellent low torso drive angle during initial 3 steps. Knee drive is aggressive at 84° with minimal lateral sway.",
-          strengths: ["Drive phase shin angle (42°)", "Force vector alignment", "Arm carriage cadence"],
-          improvements: ["Slight overstride on step 4", "Head rises too early"],
-          metrics: [
-            { label: "Block Exit Velocity", value: "4.8 m/s" },
-            { label: "Ground Contact Time", value: "0.108 s" },
-            { label: "Torso Inclination", value: "44°" },
-            { label: "Stride Frequency", value: "4.4 Hz" },
-          ],
-          recommendations: ["Maintain downward visual focus for 10m", "Incorporate resisted sled pushes"],
-        },
-      },
-      {
-        _id: "va_sprint_2" as Id<"videoAnalyses">,
-        _creationTime: Date.now() - 7200000,
-        academyId: "acad_hercules" as Id<"academies">,
-        athleteId: (athletes?.[0]?._id ?? "ath_marcus") as Id<"athletes">,
-        storageId: "storage_mock_2" as Id<"_storage">,
-        filename: "marcus_upright_mechanics_slowmo.mp4",
-        context: "Top-end speed mechanics at 60m mark",
-        status: "complete",
-        requestedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-        completedAt: new Date(Date.now() - 86400000 * 5 + 20000).toISOString(),
-        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-        createdBy: "usr_coach" as Id<"users">,
-        feedback: {
-          summary: "High knee lift and tall posture observed. Dorsiflexion prior to ground contact is solid.",
-          strengths: ["Vertical posture (1.5° lean)", "Active pawback action"],
-          improvements: ["Heel recovery loops slightly wide behind hip"],
-          metrics: [
-            { label: "Top Speed", value: "10.4 m/s" },
-            { label: "Step Length", value: "2.18 m" },
-            { label: "Flight Time", value: "0.124 s" },
-          ],
-          recommendations: ["Mini-hurdle wicket drills to tighten backside mechanics"],
-        },
-      },
-    ];
-  }, [analysesQuery, athletes]);
+    return FALLBACK_ANALYSES;
+  }, [analysesQuery]);
 
   const filteredAnalyses = useMemo(() => {
     return allAnalyses.filter((item) => {
@@ -130,8 +130,7 @@ export default function VideoHubPage() {
   }, [allAnalyses, statusFilter, searchQuery]);
 
   return (
-    <AppLayout>
-      <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -289,6 +288,5 @@ export default function VideoHubPage() {
           />
         )}
       </div>
-    </AppLayout>
   );
 }

@@ -108,16 +108,17 @@ export default function ChatPane({
     if (rawMessages && rawMessages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [rawMessages?.length]);
+  }, [rawMessages]);
 
   // Find other participant
+  const participants = conversation?.participants;
   const otherParticipant = useMemo(() => {
-    if (!conversation?.participants || !user) return null;
+    if (!participants || !user) return null;
     return (
-      conversation.participants.find((p) => p?._id !== user._id) ??
-      conversation.participants[0]
+      participants.find((p) => p?._id !== user._id) ??
+      participants[0]
     );
-  }, [conversation?.participants, user]);
+  }, [participants, user]);
 
   // Group messages by day
   const groupedMessages = useMemo(() => {

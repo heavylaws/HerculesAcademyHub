@@ -20,6 +20,7 @@ import {
   Crown,
   ArrowRight,
   Mail,
+  HeartPulse,
 } from "lucide-react";
 
 const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
@@ -51,6 +52,15 @@ const TEST_USERS_BY_ROLE = [
     roleBadge: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
     desc: "Athlete portal: personal Sprint Elite schedule, $250 fee ledger & payment history",
     icon: User,
+  },
+  {
+    id: "usr_guardian_mary",
+    name: "Mary Vance",
+    email: "mary.vance@gmail.com",
+    role: "Parent / Guardian",
+    roleBadge: "bg-pink-500/10 text-pink-500 border-pink-500/20",
+    desc: "Family portal: track Marcus's practice attendance, medical releases, and pay dues",
+    icon: HeartPulse,
   },
   {
     id: "usr_athlete_elena",

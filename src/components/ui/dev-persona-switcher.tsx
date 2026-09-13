@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Sparkles,
   Mail,
+  HeartPulse,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input.tsx";
@@ -60,6 +61,15 @@ const PERSONAS: PersonaOption[] = [
     label: "Athlete (Track & Field)",
     icon: User,
     color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  },
+  {
+    id: "usr_guardian_mary",
+    name: "Mary Vance",
+    email: "mary.vance@gmail.com",
+    role: "guardian",
+    label: "Parent / Guardian (Mary Vance)",
+    icon: HeartPulse,
+    color: "bg-pink-500/10 text-pink-500 border-pink-500/20",
   },
   {
     id: "usr_athlete_elena",

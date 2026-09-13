@@ -60,17 +60,17 @@ export default function AnnouncementsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const announcements = useQuery(api.announcements.listAnnouncements, {}) ?? [];
-  const teams = useQuery(api.teams.listTeams) ?? [];
+  const announcementsData = useQuery(api.announcements.listAnnouncements, {});
+  const teamsData = useQuery(api.teams.listTeams);
   const markAsRead = useMutation(api.announcements.markAnnouncementAsRead);
   const deleteAnnouncement = useMutation(api.announcements.deleteAnnouncement);
 
   const teamMap = useMemo(() => {
-    return new Map(teams.map((t) => [t._id, t.name]));
-  }, [teams]);
+    return new Map((teamsData ?? []).map((t) => [t._id, t.name]));
+  }, [teamsData]);
 
   const filteredAnnouncements = useMemo(() => {
-    return announcements.filter((item) => {
+    return (announcementsData ?? []).filter((item) => {
       if (selectedCategory !== "all" && item.category !== selectedCategory) {
         return false;
       }
@@ -89,7 +89,7 @@ export default function AnnouncementsPage() {
       }
       return true;
     });
-  }, [announcements, selectedCategory, priorityFilter, searchQuery]);
+  }, [announcementsData, selectedCategory, priorityFilter, searchQuery]);
 
   const handleMarkRead = async (id: string) => {
     try {
@@ -118,8 +118,7 @@ export default function AnnouncementsPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto w-full">
+    <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full">
         {/* Page Hero Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -363,6 +362,5 @@ export default function AnnouncementsPage() {
           onOpenChange={setCreateOpen}
         />
       </div>
-    </AppLayout>
   );
 }

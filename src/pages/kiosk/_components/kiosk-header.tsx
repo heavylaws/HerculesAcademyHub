@@ -10,14 +10,24 @@ import {
   Shield,
   Volume2,
   VolumeX,
+  Wifi,
+  WifiOff,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
+import {
+  subscribeOfflineQueue,
+  type QueuedCheckIn,
+} from "@/lib/kiosk-offline-queue.ts";
 
 interface KioskHeaderProps {
   currentSessionId: string;
@@ -32,6 +42,8 @@ interface KioskHeaderProps {
   onSelectSession: (sessionId: string) => void;
   audioEnabled: boolean;
   onToggleAudio: () => void;
+  onSyncOffline?: () => Promise<void>;
+  isSyncing?: boolean;
 }
 
 export function KioskHeader({
@@ -40,14 +52,50 @@ export function KioskHeader({
   onSelectSession,
   audioEnabled,
   onToggleAudio,
+  onSyncOffline,
+  isSyncing = false,
 }: KioskHeaderProps) {
   const navigate = useNavigate();
   const [time, setTime] = useState(new Date());
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
+  const [offlineQueue, setOfflineQueue] = useState<QueuedCheckIn[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(() => Boolean(document.fullscreenElement));
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    const handleFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    document.addEventListener("fullscreenchange", handleFullscreen);
+
+    const unsubQueue = subscribeOfflineQueue((q) => setOfflineQueue(q));
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      document.removeEventListener("fullscreenchange", handleFullscreen);
+      unsubQueue();
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {
+      console.error("Fullscreen error", e);
+    }
+  };
 
   const activeSession = sessions.find((s) => s._id === currentSessionId);
 
@@ -130,8 +178,45 @@ export function KioskHeader({
         ) : null}
       </div>
 
-      {/* Right Controls: Audio Mute, Live Clock & Exit */}
-      <div className="flex items-center gap-4">
+      {/* Right Controls: Connection, Sync, Audio, Fullscreen, Clock & Exit */}
+      <div className="flex items-center gap-3">
+        {/* Network & Queue status */}
+        <div className="flex items-center gap-2">
+          {isOnline ? (
+            offlineQueue.length > 0 ? (
+              <Badge variant="outline" className="gap-1.5 bg-amber-500/10 text-amber-500 border-amber-500/20 text-xs py-1">
+                <Wifi className="size-3.5" />
+                <span>{offlineQueue.length} Queued</span>
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1.5 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs py-1">
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Online</span>
+              </Badge>
+            )
+          ) : (
+            <Badge variant="outline" className="gap-1.5 bg-destructive/10 text-destructive border-destructive/20 text-xs py-1">
+              <WifiOff className="size-3.5" />
+              <span>Offline ({offlineQueue.length})</span>
+            </Badge>
+          )}
+
+          {/* Sync Button (if queued) */}
+          {offlineQueue.length > 0 && onSyncOffline && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onSyncOffline}
+              disabled={isSyncing || !isOnline}
+              className="h-8 gap-1.5 text-xs font-semibold"
+              title="Sync queued check-ins now"
+            >
+              <RefreshCw className={`size-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+              <span>Sync</span>
+            </Button>
+          )}
+        </div>
+
         {/* Audio feedback toggle */}
         <Button
           variant="ghost"
@@ -147,14 +232,29 @@ export function KioskHeader({
           )}
         </Button>
 
+        {/* Fullscreen Toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleFullscreen}
+          className="size-10 rounded-xl text-muted-foreground hover:text-foreground"
+          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen kiosk mode"}
+        >
+          {isFullscreen ? (
+            <Minimize2 className="size-5 text-primary" />
+          ) : (
+            <Maximize2 className="size-5" />
+          )}
+        </Button>
+
         {/* Live Clock */}
-        <div className="hidden sm:flex flex-col items-end text-right">
-          <div className="flex items-center gap-1.5 font-mono text-lg font-bold tracking-tight text-foreground">
-            <Clock className="size-4 text-primary" />
+        <div className="hidden md:flex flex-col items-end text-right">
+          <div className="flex items-center gap-1.5 font-mono text-base font-bold tracking-tight text-foreground">
+            <Clock className="size-3.5 text-primary" />
             <span>{format(time, "HH:mm:ss")}</span>
           </div>
-          <span className="text-[11px] font-medium text-muted-foreground">
-            {format(time, "EEEE, MMM d, yyyy")}
+          <span className="text-[10px] font-medium text-muted-foreground">
+            {format(time, "EEE, MMM d")}
           </span>
         </div>
 
@@ -163,10 +263,10 @@ export function KioskHeader({
           variant="outline"
           size="sm"
           onClick={() => navigate(currentSessionId ? `/sessions/${currentSessionId}` : "/schedule")}
-          className="h-10 gap-2 rounded-xl px-3.5 text-xs font-semibold border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+          className="h-9 gap-1.5 rounded-xl px-3 text-xs font-semibold border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
         >
-          <DoorOpen className="size-4" />
-          <span>Exit Kiosk</span>
+          <DoorOpen className="size-3.5" />
+          <span>Exit</span>
         </Button>
       </div>
     </header>
