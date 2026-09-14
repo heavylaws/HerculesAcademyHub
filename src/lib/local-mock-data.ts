@@ -303,6 +303,7 @@ export const SEED_USERS: MockUser[] = [
     name: "Ahmad Baalbaki",
     email: "ah.baalbaki@gmail.com",
     role: "platform_admin",
+    academyId: "acad_hercules",
     tokenIdentifier: "mock|user_super_admin",
   },
   {

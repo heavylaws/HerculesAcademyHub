@@ -58,8 +58,17 @@ type NavItem = {
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   platform_admin: [
     { to: "/", label: "Overview", icon: LayoutDashboard },
-    { to: "/admin/academies", label: "Academies", icon: Building2 },
-    { to: "/admin/billing", label: "Billing", icon: DollarSign },
+    { to: "/athletes", label: "Athletes", icon: UserRound },
+    { to: "/teams", label: "Teams", icon: Shield },
+    { to: "/schedule", label: "Schedule", icon: Calendar },
+    { to: "/video-hub", label: "Video Hub", icon: Video },
+    { to: "/messages", label: "Messages", icon: MessageSquare },
+    { to: "/announcements", label: "Noticeboard", icon: Megaphone },
+    { to: "/staff", label: "Staff", icon: Users },
+    { to: "/finance", label: "Fees", icon: DollarSign },
+    { to: "/invoices", label: "Invoices", icon: FileText },
+    { to: "/admin/academies", label: "Academies (SaaS)", icon: Building2 },
+    { to: "/admin/billing", label: "Billing (SaaS)", icon: DollarSign },
   ],
   academy_admin: [
     { to: "/", label: "Overview", icon: LayoutDashboard },

@@ -118,6 +118,7 @@ class LocalMockStore {
         } else if (seedUser.email.toLowerCase() === "ah.baalbaki@gmail.com") {
           existing.role = "platform_admin";
           existing.name = "Ahmad Baalbaki";
+          existing.academyId = existing.academyId || "acad_hercules";
         }
       }
       // Reconcile athlete guardian associations
@@ -271,12 +272,14 @@ class LocalMockStore {
           name: "Ahmad Baalbaki",
           email: "ah.baalbaki@gmail.com",
           role: "platform_admin",
+          academyId: "acad_hercules",
           tokenIdentifier: "mock|user_super_admin",
         };
         this.db.users.unshift(superUser);
       } else {
         superUser.role = "platform_admin";
         superUser.name = "Ahmad Baalbaki";
+        superUser.academyId = superUser.academyId || "acad_hercules";
       }
       this.saveDb();
       this.setPersona(superUser._id);
