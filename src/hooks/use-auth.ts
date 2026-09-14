@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import * as HerculesAuth from "@usehercules/auth/react";
 import { localMockStore } from "@/lib/local-mock-store.ts";
 
-const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
+const isLocalDev = import.meta.env.VITE_USE_EXTERNAL_AUTH !== "true";
 
 export interface LocalAuthUser {
   id?: string;
@@ -34,8 +34,20 @@ function useLocalAuth() {
   const isAuthenticated = localMockStore.isAuthenticated();
 
   const signin = useCallback(async () => {
-    localMockStore.setPersona("usr_admin");
+    // Default to Super Admin Ahmad Baalbaki
+    localMockStore.setPersona("usr_super_admin");
   }, []);
+
+  const signinWithPassword = useCallback(
+    async (email: string, password: string) => {
+      const res = localMockStore.authenticateWithPassword(email, password);
+      if (!res.success) {
+        throw new Error(res.error || "Authentication failed");
+      }
+      return res.user;
+    },
+    [],
+  );
 
   const signout = useCallback(async () => {
     localMockStore.setPersona(null);
@@ -55,6 +67,7 @@ function useLocalAuth() {
         }
       : null,
     signin,
+    signinWithPassword,
     signout,
     signinRedirect: signin,
     signoutRedirect: signout,

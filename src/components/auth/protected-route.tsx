@@ -1,25 +1,11 @@
 import { Navigate } from "react-router-dom";
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
-import { SignInButton } from "@/components/ui/signin.tsx";
 import AppLayout from "@/components/layout/app-layout.tsx";
 import { useCurrentUser, type UserRole } from "@/hooks/use-current-user.ts";
-import { Activity } from "lucide-react";
 
 function SignInScreen() {
-  return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-8 bg-background px-4">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-          <Activity className="size-7" />
-        </div>
-        <h1 className="font-display text-3xl font-bold tracking-tight">
-          PeakForm Athletics
-        </h1>
-      </div>
-      <SignInButton size="lg" signInText="Sign in to continue" />
-    </div>
-  );
+  return <Navigate to="/" replace />;
 }
 
 function LoadingScreen() {

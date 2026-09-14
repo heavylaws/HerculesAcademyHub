@@ -4,7 +4,7 @@ import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { localMockConvexClient } from "@/lib/local-mock-convex-client.ts";
 import { useAuth } from "@/hooks/use-auth.ts";
 
-const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
+const isLocalDev = import.meta.env.VITE_USE_LIVE_CONVEX !== "true";
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL ?? "http://localhost:3000";
 const liveConvex = new ConvexReactClient(convexUrl);

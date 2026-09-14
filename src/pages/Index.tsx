@@ -20,12 +20,25 @@ import {
   Crown,
   ArrowRight,
   Mail,
+  Lock,
+  Eye,
+  EyeOff,
   HeartPulse,
+  Sparkles,
+  Users,
 } from "lucide-react";
 
-const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
-
 const TEST_USERS_BY_ROLE = [
+  {
+    id: "usr_super_admin",
+    name: "Ahmad Baalbaki",
+    email: "ah.baalbaki@gmail.com",
+    role: "Platform Admin (Super Admin)",
+    roleBadge: "bg-rose-500/10 text-rose-500 border-rose-500/20",
+    desc: "SaaS Super Admin: full access to all 3 academies, platform billing, staff and rosters",
+    icon: Crown,
+    isSuperAdmin: true,
+  },
   {
     id: "usr_admin",
     name: "Jane Sterling",
@@ -92,117 +105,225 @@ const TEST_USERS_BY_ROLE = [
 ];
 
 function LandingScreen() {
-  const [emailInput, setEmailInput] = useState("");
+  const [email, setEmail] = useState("ah.baalbaki@gmail.com");
+  const [password, setPassword] = useState("//A!t3r3g0");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showPersonas, setShowPersonas] = useState(true);
 
-  const handleEmailLogin = (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailInput.trim()) return;
-    const user = localMockStore.setPersonaByEmail(emailInput.trim());
-    toast.success(
-      `Signed in as ${user.name} (${user.role ? user.role.replace("_", " ") : "Pending Access"})`,
+    if (!email.trim()) {
+      toast.error("Please enter your email");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = localMockStore.authenticateWithPassword(email.trim(), password);
+      if (!res.success) {
+        toast.error(res.error || "Authentication failed");
+        setLoading(false);
+        return;
+      }
+      toast.success(
+        `Welcome, ${res.user?.name}! Signed in as ${res.user?.role ? res.user.role.replace("_", " ") : "User"}.`,
+      );
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Sign-in error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQuickSuperAdmin = () => {
+    setEmail("ah.baalbaki@gmail.com");
+    setPassword("//A!t3r3g0");
+    const res = localMockStore.authenticateWithPassword(
+      "ah.baalbaki@gmail.com",
+      "//A!t3r3g0",
     );
-    setEmailInput("");
+    if (res.success) {
+      toast.success("Welcome, Ahmad Baalbaki! Signed in as Super Admin.");
+    }
   };
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-8 bg-background px-4 py-12">
+      {/* Brand Header */}
       <div className="flex flex-col items-center gap-3 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/20">
           <Activity className="size-7" />
         </div>
         <h1 className="font-display text-4xl font-bold tracking-tight text-balance">
           PeakForm Athletics
         </h1>
-        <p className="max-w-md text-muted-foreground text-balance">
-          The performance and biomechanics platform for sports academies. Select
-          a test user below to manually test any role:
+        <p className="max-w-md text-sm text-muted-foreground text-balance">
+          The performance and biomechanics platform for sports academies. Sign in
+          with your credentials below:
         </p>
       </div>
 
-      <div className="flex flex-col items-center gap-6 w-full max-w-4xl">
-        {isLocalDev && (
-          <div className="flex flex-col items-center gap-4 w-full">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <span>Select a Test User Account for Manual Testing</span>
+      {/* Main Authentication Card */}
+      <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-xl">
+        {/* Quick Super Admin Button */}
+        <button
+          type="button"
+          onClick={handleQuickSuperAdmin}
+          className="mb-5 flex w-full items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-left text-xs transition-all hover:bg-rose-500/20"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-rose-500 text-white shadow-sm">
+              <Crown className="size-3.5" />
             </div>
-
-            <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {TEST_USERS_BY_ROLE.map((p) => {
-                const Icon = p.icon;
-                return (
-                  <div
-                    key={p.id}
-                    className="flex flex-col justify-between gap-3 rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/50 hover:shadow-lg"
-                  >
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 text-primary">
-                          <Icon className="size-4 shrink-0" />
-                          <span className="font-bold text-sm text-foreground">
-                            {p.name}
-                          </span>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] font-medium ${p.roleBadge}`}
-                        >
-                          {p.role}
-                        </Badge>
-                      </div>
-
-                      <div className="text-[11px] font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded w-fit">
-                        {p.email}
-                      </div>
-
-                      <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                        {p.desc}
-                      </p>
-                    </div>
-
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => {
-                        localMockStore.setPersona(p.id);
-                        toast.success(`Signed in as ${p.name} (${p.role})`);
-                      }}
-                      className="w-full h-8 text-xs font-semibold gap-1.5 mt-2"
-                    >
-                      <span>Sign in as {p.name.split(" ")[0]}</span>
-                      <ArrowRight className="size-3" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Manual Email Login Form */}
-            <div className="flex flex-col items-center gap-2.5 w-full max-w-md pt-4 border-t mt-2">
-              <span className="text-xs text-muted-foreground">
-                Or test with any custom email address:
-              </span>
-              <form onSubmit={handleEmailLogin} className="flex gap-2 w-full">
-                <Input
-                  type="email"
-                  placeholder="e.g. coach@hercules.com or new@example.com"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  className="h-9 text-xs font-mono"
-                />
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="h-9 text-xs shrink-0 gap-1.5"
-                >
-                  <Mail className="size-3.5" />
-                  Sign In
-                </Button>
-              </form>
+            <div>
+              <div className="font-semibold text-foreground">
+                One-Click Super Admin Login
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                ah.baalbaki@gmail.com
+              </div>
             </div>
           </div>
-        )}
+          <span className="shrink-0 font-medium text-rose-500 hover:underline">
+            Sign In &rarr;
+          </span>
+        </button>
 
-        {!isLocalDev && <SignInButton size="lg" signInText="Sign In" />}
+        {/* Credentials Form */}
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-foreground">
+              Email Address
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="email"
+                placeholder="name@domain.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="pl-9 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-foreground">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="pl-9 pr-9 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full h-10 gap-2 text-sm font-semibold mt-1"
+          >
+            <Sparkles className="size-4" />
+            {loading ? "Signing in..." : "Sign In to Account"}
+          </Button>
+        </form>
+      </div>
+
+      {/* Test Personas Section */}
+      <div className="flex flex-col items-center gap-4 w-full max-w-4xl">
+        <div className="flex items-center justify-between w-full border-b pb-2">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Users className="size-4" />
+            <span>Or Select a Demo Persona</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowPersonas(!showPersonas)}
+            className="h-7 text-xs text-muted-foreground"
+          >
+            {showPersonas ? "Hide Personas" : "Show All Personas"}
+          </Button>
+        </div>
+
+        {showPersonas && (
+          <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {TEST_USERS_BY_ROLE.map((p) => {
+              const Icon = p.icon;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex flex-col justify-between gap-3 rounded-2xl border p-4 transition-all hover:shadow-lg ${
+                    p.isSuperAdmin
+                      ? "border-rose-500/40 bg-rose-500/5 hover:border-rose-500"
+                      : "border-border/80 bg-card hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Icon className="size-4 shrink-0 text-primary" />
+                        <span className="font-bold text-xs truncate text-foreground">
+                          {p.name}
+                        </span>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] font-medium shrink-0 ${p.roleBadge}`}
+                      >
+                        {p.role.split(" ")[0]}
+                      </Badge>
+                    </div>
+
+                    <div className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded truncate">
+                      {p.email}
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {p.desc}
+                    </p>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant={p.isSuperAdmin ? "default" : "outline"}
+                    onClick={() => {
+                      if (p.id === "usr_super_admin") {
+                        handleQuickSuperAdmin();
+                      } else {
+                        localMockStore.setPersona(p.id);
+                        toast.success(`Signed in as ${p.name} (${p.role})`);
+                      }
+                    }}
+                    className="w-full h-8 text-xs font-semibold gap-1.5 mt-2"
+                  >
+                    <span>Login as {p.name.split(" ")[0]}</span>
+                    <ArrowRight className="size-3" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

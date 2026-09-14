@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input.tsx";
 import { RoleTestRunner } from "@/components/ui/role-test-runner.tsx";
 
-const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
+const isLocalDev = import.meta.env.VITE_USE_EXTERNAL_AUTH !== "true";
 
 interface PersonaOption {
   id: string;
@@ -35,6 +35,15 @@ interface PersonaOption {
 }
 
 const PERSONAS: PersonaOption[] = [
+  {
+    id: "usr_super_admin",
+    name: "Ahmad Baalbaki",
+    email: "ah.baalbaki@gmail.com",
+    role: "platform_admin",
+    label: "Super Admin (Ahmad Baalbaki)",
+    icon: Crown,
+    color: "bg-rose-500/15 text-rose-500 border-rose-500/30",
+  },
   {
     id: "usr_admin",
     name: "Jane Sterling",

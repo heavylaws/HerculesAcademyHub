@@ -299,6 +299,13 @@ export const SEED_USERS: MockUser[] = [
     tokenIdentifier: "mock|user_accounting",
   },
   {
+    _id: "usr_super_admin",
+    name: "Ahmad Baalbaki",
+    email: "ah.baalbaki@gmail.com",
+    role: "platform_admin",
+    tokenIdentifier: "mock|user_super_admin",
+  },
+  {
     _id: "usr_platform",
     name: "Alex Woods",
     email: "super@peakform.io",

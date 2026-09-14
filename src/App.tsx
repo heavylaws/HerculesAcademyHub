@@ -43,7 +43,7 @@ function PageLoadingFallback() {
   );
 }
 
-const isLocalDev = import.meta.env.VITE_LOCAL_DEV !== "false";
+const isLocalDev = import.meta.env.VITE_USE_EXTERNAL_AUTH !== "true";
 
 export default function App() {
   return (
@@ -221,8 +221,8 @@ export default function App() {
         {isLocalDev && (
           <div className="fixed bottom-3 left-3 z-40 hidden sm:flex items-center gap-1.5 rounded-full border border-primary/25 bg-background/90 px-3 py-1 text-[11px] font-medium text-foreground shadow-md backdrop-blur-md">
             <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-muted-foreground">Mode:</span>
-            <span className="font-semibold text-primary">Offline Mock Store</span>
+            <span className="text-muted-foreground">Status:</span>
+            <span className="font-semibold text-primary">System Online</span>
           </div>
         )}
         <DevPersonaSwitcher />

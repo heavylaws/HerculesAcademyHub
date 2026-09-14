@@ -110,10 +110,14 @@ class LocalMockStore {
         return initial;
       }
       const parsed: MockDatabase = JSON.parse(raw);
-      // Reconcile any missing seed users (e.g. guardian persona)
+      // Reconcile any missing seed users (e.g. guardian persona, super admin)
       for (const seedUser of SEED_USERS) {
-        if (!parsed.users.some((u) => u._id === seedUser._id)) {
+        const existing = parsed.users.find((u) => u._id === seedUser._id || u.email.toLowerCase() === seedUser.email.toLowerCase());
+        if (!existing) {
           parsed.users.push(seedUser);
+        } else if (seedUser.email.toLowerCase() === "ah.baalbaki@gmail.com") {
+          existing.role = "platform_admin";
+          existing.name = "Ahmad Baalbaki";
         }
       }
       // Reconcile athlete guardian associations
@@ -242,6 +246,52 @@ class LocalMockStore {
     }
     this.setPersona(user._id);
     return user;
+  }
+
+  public authenticateWithPassword(
+    email: string,
+    password: string,
+  ): { success: boolean; user?: MockUser; error?: string } {
+    const normalized = email.trim().toLowerCase();
+
+    // Specific check for Super Admin: ah.baalbaki@gmail.com
+    if (normalized === "ah.baalbaki@gmail.com") {
+      if (password !== "//A!t3r3g0") {
+        return {
+          success: false,
+          error: "Invalid password for ah.baalbaki@gmail.com. Please check your credentials.",
+        };
+      }
+      let superUser = this.db.users.find(
+        (u) => u.email.toLowerCase() === "ah.baalbaki@gmail.com",
+      );
+      if (!superUser) {
+        superUser = {
+          _id: "usr_super_admin",
+          name: "Ahmad Baalbaki",
+          email: "ah.baalbaki@gmail.com",
+          role: "platform_admin",
+          tokenIdentifier: "mock|user_super_admin",
+        };
+        this.db.users.unshift(superUser);
+      } else {
+        superUser.role = "platform_admin";
+        superUser.name = "Ahmad Baalbaki";
+      }
+      this.saveDb();
+      this.setPersona(superUser._id);
+      return { success: true, user: superUser };
+    }
+
+    // Check if account exists
+    let user = this.db.users.find((u) => u.email.toLowerCase() === normalized);
+    if (!user) {
+      user = this.setPersonaByEmail(normalized);
+      return { success: true, user };
+    }
+
+    this.setPersona(user._id);
+    return { success: true, user };
   }
 
   public isAuthenticated(): boolean {
