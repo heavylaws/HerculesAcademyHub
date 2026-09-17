@@ -62,6 +62,7 @@ import {
 import { useCurrentUser } from "@/hooks/use-current-user.ts";
 import { cn } from "@/lib/utils.ts";
 import EditSessionDialog from "./_components/edit-session-dialog.tsx";
+import LiveSessionPerformance from "./_components/live-session-performance.tsx";
 
 type AttendanceStatus = "present" | "absent" | "excused" | "late";
 
@@ -401,6 +402,13 @@ export default function SessionDetail() {
           )}
         </CardContent>
       </Card>
+
+      <LiveSessionPerformance
+        sessionId={session._id}
+        roster={roster}
+        attendance={attendance}
+        canManage={canManage}
+      />
 
       {canManage && (
         <EditSessionDialog

@@ -11,6 +11,7 @@ export const recordAssessment = mutation({
     value: v.number(),
     unit: v.optional(v.string()),
     assessedOn: v.string(),
+    sessionId: v.optional(v.id("trainingSessions")),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -32,6 +33,7 @@ export const recordAssessment = mutation({
     return await ctx.db.insert("assessments", {
       academyId: athlete.academyId,
       athleteId: args.athleteId,
+      sessionId: args.sessionId,
       metric: args.metric.trim(),
       value: args.value,
       unit: args.unit,
@@ -125,5 +127,94 @@ export const listAssessmentsForAthlete = query({
         notes: p.notes,
       })),
     }));
+  },
+});
+
+/** Coach/Admin: batch record assessment results for a team session. */
+export const recordBatchSessionAssessments = mutation({
+  args: {
+    sessionId: v.id("trainingSessions"),
+    metric: v.string(),
+    unit: v.optional(v.string()),
+    assessedOn: v.string(),
+    entries: v.array(
+      v.object({
+        athleteId: v.id("athletes"),
+        value: v.number(),
+        notes: v.optional(v.string()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, ["academy_admin", "coach"]);
+    const session = await ctx.db.get("trainingSessions", args.sessionId);
+    if (!session) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Training session not found",
+      });
+    }
+    await requireAcademyMember(ctx, session.academyId);
+    if (!args.metric.trim()) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "Metric name is required",
+      });
+    }
+
+    const insertedIds: string[] = [];
+    const now = new Date().toISOString();
+
+    for (const entry of args.entries) {
+      if (entry.value !== undefined && !isNaN(entry.value)) {
+        const id = await ctx.db.insert("assessments", {
+          academyId: session.academyId,
+          athleteId: entry.athleteId,
+          sessionId: session._id,
+          metric: args.metric.trim(),
+          value: entry.value,
+          unit: args.unit?.trim() || undefined,
+          assessedOn: args.assessedOn,
+          notes: entry.notes?.trim() || undefined,
+          createdBy: user._id,
+          createdAt: now,
+        });
+        insertedIds.push(id);
+      }
+    }
+    return { count: insertedIds.length, ids: insertedIds };
+  },
+});
+
+/** Query all assessments recorded during a specific training session. */
+export const listAssessmentsForSession = query({
+  args: { sessionId: v.id("trainingSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get("trainingSessions", args.sessionId);
+    if (!session) {
+      return [];
+    }
+    await requireAcademyMember(ctx, session.academyId);
+
+    const records = await ctx.db
+      .query("assessments")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .order("desc")
+      .collect();
+
+    // Enrich with athlete details
+    const enriched = await Promise.all(
+      records.map(async (r) => {
+        const athlete = await ctx.db.get("athletes", r.athleteId);
+        return {
+          ...r,
+          athleteName: athlete
+            ? `${athlete.firstName} ${athlete.lastName}`
+            : "Unknown Athlete",
+        };
+      }),
+    );
+
+    return enriched;
   },
 });

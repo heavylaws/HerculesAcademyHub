@@ -114,6 +114,7 @@ export interface MockAssessment {
   _id: string;
   academyId: string;
   athleteId: string;
+  sessionId?: string;
   metric: string;
   value: number;
   unit: string;

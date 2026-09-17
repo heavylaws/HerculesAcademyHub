@@ -964,6 +964,24 @@ class LocalMockStore {
         }));
       }
 
+      case "assessments:listAssessmentsForSession": {
+        const sessionId = args.sessionId as string;
+        const records = this.db.assessments
+          .filter((ass) => ass.sessionId === sessionId)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+        const athleteMap = new Map(this.db.athletes.map((a) => [a._id, a]));
+        return records.map((r) => {
+          const athlete = athleteMap.get(r.athleteId);
+          return {
+            ...r,
+            athleteName: athlete
+              ? `${athlete.firstName} ${athlete.lastName}`
+              : "Unknown Athlete",
+          };
+        });
+      }
+
       case "fees:listFeesForAcademy": {
         if (!academyId) return [];
         let fees = this.db.athleteFees.filter((f) => f.academyId === academyId);
@@ -1627,12 +1645,13 @@ class LocalMockStore {
       case "assessments:addAssessment": {
         if (!academyId) throw new Error("No academy");
         const newAssessment: MockAssessment = {
-          _id: `ass_${Date.now()}`,
+          _id: `ass_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           academyId,
           athleteId: args.athleteId as string,
+          sessionId: args.sessionId as string | undefined,
           metric: (args.metric as string).trim(),
           value: Number(args.value),
-          unit: (args.unit as string).trim(),
+          unit: (args.unit as string)?.trim() || "",
           assessedOn: args.assessedOn as string,
           notes: args.notes as string | undefined,
           conductedBy: user?.name ?? "Staff",
@@ -1642,6 +1661,39 @@ class LocalMockStore {
         this.saveDb();
         this.notifyAll();
         return newAssessment._id;
+      }
+
+      case "assessments:recordBatchSessionAssessments": {
+        if (!academyId) throw new Error("No academy");
+        const sessionId = args.sessionId as string;
+        const metric = (args.metric as string).trim();
+        const unit = (args.unit as string)?.trim() || "";
+        const assessedOn = args.assessedOn as string;
+        const entries = (args.entries as Array<{ athleteId: string; value: number; notes?: string }>) || [];
+
+        const insertedIds: string[] = [];
+        for (const entry of entries) {
+          if (entry.value !== undefined && !isNaN(entry.value)) {
+            const newAssessment: MockAssessment = {
+              _id: `ass_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              academyId,
+              athleteId: entry.athleteId,
+              sessionId,
+              metric,
+              value: Number(entry.value),
+              unit,
+              assessedOn,
+              notes: entry.notes?.trim(),
+              conductedBy: user?.name ?? "Staff",
+              createdAt: nowIso,
+            };
+            this.db.assessments.unshift(newAssessment);
+            insertedIds.push(newAssessment._id);
+          }
+        }
+        this.saveDb();
+        this.notifyAll();
+        return { count: insertedIds.length, ids: insertedIds };
       }
 
       case "assessments:deleteAssessment": {

@@ -16,6 +16,7 @@ export const assessments = defineTable({
   unit: v.optional(v.string()),
   /** YYYY-MM-DD – the day the assessment was performed */
   assessedOn: v.string(),
+  sessionId: v.optional(v.id("trainingSessions")),
   notes: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.string(),
@@ -24,4 +25,6 @@ export const assessments = defineTable({
   .index("by_athlete_and_metric", ["athleteId", "metric"])
   .index("by_athlete_and_assessedOn", ["athleteId", "assessedOn"])
   .index("by_academy", ["academyId"])
-  .index("by_academy_and_assessedOn", ["academyId", "assessedOn"]);
+  .index("by_academy_and_assessedOn", ["academyId", "assessedOn"])
+  .index("by_session", ["sessionId"])
+  .index("by_session_and_metric", ["sessionId", "metric"]);

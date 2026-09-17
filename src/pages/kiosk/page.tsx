@@ -11,9 +11,10 @@ import {
   MonitorCheck,
   Sparkles,
   Users,
+  Zap,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
-import type { Id } from "@/convex/_generated/dataModel.d.ts";
+import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -34,6 +35,7 @@ import {
 } from "./_components/kiosk-roster-grid.tsx";
 import { KioskPinKeypad } from "./_components/kiosk-pin-keypad.tsx";
 import { CoachMonitorView } from "./_components/coach-monitor-view.tsx";
+import LiveSessionPerformance from "../sessions/_components/live-session-performance.tsx";
 
 export default function KioskPage() {
   const { sessionId: paramSessionId } = useParams<{ sessionId?: string }>();
@@ -44,9 +46,9 @@ export default function KioskPage() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [successData, setSuccessData] = useState<CheckInSuccessData | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"roster" | "keypad" | "monitor">(
-    "roster",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "roster" | "keypad" | "monitor" | "drills"
+  >("roster");
 
   // Active session ID resolution: param > state > first today session
   const activeSessionId = useMemo(() => {
@@ -374,6 +376,13 @@ export default function KioskPage() {
                     <MonitorCheck className="size-4" />
                     <span>Coach Monitor</span>
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="drills"
+                    className="h-11 px-6 rounded-xl font-bold text-sm gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all"
+                  >
+                    <Zap className="size-4" />
+                    <span>Live Drills</span>
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -405,6 +414,19 @@ export default function KioskPage() {
                   stats={kioskData.stats}
                   onSetStatus={handleSetStatus}
                   onBulkMarkAbsent={handleBulkMarkAbsent}
+                />
+              </TabsContent>
+
+              {/* Tab 4: Live Session Performance & Drills */}
+              <TabsContent value="drills" className="mt-0 focus-visible:outline-none">
+                <LiveSessionPerformance
+                  sessionId={activeSessionId as Id<"trainingSessions">}
+                  roster={kioskData.roster}
+                  attendance={kioskData.roster.map((a) => ({
+                    athleteId: a._id,
+                    status: a.status,
+                  }))}
+                  canManage={true}
                 />
               </TabsContent>
             </Tabs>
