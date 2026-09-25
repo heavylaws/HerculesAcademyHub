@@ -103,6 +103,8 @@ Configure your environment settings in `.env.local`:
 
 ```env
 # Frontend
+# true = mock mode (no Convex/auth needed, demo personas). Omit for live mode.
+VITE_LOCAL_DEV=true
 VITE_CONVEX_URL=http://localhost:3000
 VITE_HERCULES_OIDC_AUTHORITY=https://01m1maqj19rrqvx7arxzrp6hdc.hercules-auth.com
 VITE_HERCULES_OIDC_CLIENT_ID=01M1MAQJ35TDC0XSZFK4F5FCFQ

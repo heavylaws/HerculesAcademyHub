@@ -38,7 +38,7 @@ PeakForm Athletics consists of two decoupled components:
 
 | Variable | Description | Example Production Value |
 | :--- | :--- | :--- |
-| `VITE_LOCAL_DEV` | Must be set to `false` in production | `false` |
+| `VITE_LOCAL_DEV` | `true` enables mock mode (localStorage data + demo personas, **no real auth**). Leave unset or `false` in production | `false` |
 | `VITE_CONVEX_URL` | Production Convex deployment URL | `https://peakform-production.convex.cloud` |
 | `VITE_HERCULES_OIDC_AUTHORITY` | Production OIDC issuer URL | `https://01m1maqj19rrqvx7arxzrp6hdc.hercules-auth.com` |
 | `VITE_HERCULES_OIDC_CLIENT_ID` | Registered Client ID | `01M1MAQJ35TDC0XSZFK4F5FCFQ` |

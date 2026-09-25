@@ -21,8 +21,7 @@ import {
 
 import { Input } from "@/components/ui/input.tsx";
 import { RoleTestRunner } from "@/components/ui/role-test-runner.tsx";
-
-const isLocalDev = import.meta.env.VITE_USE_EXTERNAL_AUTH !== "true";
+import { isLocalDev } from "@/lib/env.ts";
 
 interface PersonaOption {
   id: string;

@@ -3,8 +3,7 @@ import { ConvexProviderWithHerculesAuth } from "@usehercules/auth/convex-react";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { localMockConvexClient } from "@/lib/local-mock-convex-client.ts";
 import { useAuth } from "@/hooks/use-auth.ts";
-
-const isLocalDev = import.meta.env.VITE_USE_LIVE_CONVEX !== "true";
+import { isLocalDev } from "@/lib/env.ts";
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL ?? "http://localhost:3000";
 const liveConvex = new ConvexReactClient(convexUrl);

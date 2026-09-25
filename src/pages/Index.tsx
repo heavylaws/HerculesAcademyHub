@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user.ts";
 import { localMockStore } from "@/lib/local-mock-store.ts";
+import { isLocalDev } from "@/lib/env.ts";
 import PendingAccess from "./PendingAccess.tsx";
 import Dashboard from "./Dashboard.tsx";
 import AppLayout from "@/components/layout/app-layout.tsx";
@@ -104,9 +105,28 @@ const TEST_USERS_BY_ROLE = [
   },
 ];
 
+function LiveLandingScreen() {
+  return (
+    <div className="flex min-h-svh flex-col items-center justify-center gap-8 bg-background px-4 py-12">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/20">
+          <Activity className="size-7" />
+        </div>
+        <h1 className="font-display text-4xl font-bold tracking-tight text-balance">
+          PeakForm Athletics
+        </h1>
+        <p className="max-w-md text-sm text-muted-foreground text-balance">
+          The performance and biomechanics platform for sports academies.
+        </p>
+      </div>
+      <SignInButton size="lg" signInText="Sign In to Account" />
+    </div>
+  );
+}
+
 function LandingScreen() {
   const [email, setEmail] = useState("ah.baalbaki@gmail.com");
-  const [password, setPassword] = useState("//A!t3r3g0");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPersonas, setShowPersonas] = useState(true);
@@ -119,7 +139,10 @@ function LandingScreen() {
     }
     setLoading(true);
     try {
-      const res = localMockStore.authenticateWithPassword(email.trim(), password);
+      const res = localMockStore.authenticateWithPassword(
+        email.trim(),
+        password,
+      );
       if (!res.success) {
         toast.error(res.error || "Authentication failed");
         setLoading(false);
@@ -137,10 +160,9 @@ function LandingScreen() {
 
   const handleQuickSuperAdmin = () => {
     setEmail("ah.baalbaki@gmail.com");
-    setPassword("//A!t3r3g0");
     const res = localMockStore.authenticateWithPassword(
       "ah.baalbaki@gmail.com",
-      "//A!t3r3g0",
+      "",
     );
     if (res.success) {
       toast.success("Welcome, Ahmad Baalbaki! Signed in as Super Admin.");
@@ -158,8 +180,8 @@ function LandingScreen() {
           PeakForm Athletics
         </h1>
         <p className="max-w-md text-sm text-muted-foreground text-balance">
-          The performance and biomechanics platform for sports academies. Sign in
-          with your credentials below:
+          The performance and biomechanics platform for sports academies. Sign
+          in with your credentials below:
         </p>
       </div>
 
@@ -219,7 +241,6 @@ function LandingScreen() {
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
                 className="pl-9 pr-9 text-sm"
               />
               <button
@@ -355,7 +376,7 @@ export default function Index() {
   return (
     <>
       <Unauthenticated>
-        <LandingScreen />
+        {isLocalDev ? <LandingScreen /> : <LiveLandingScreen />}
       </Unauthenticated>
       <AuthLoading>
         <div className="flex min-h-svh items-center justify-center bg-background p-6">

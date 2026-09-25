@@ -249,20 +249,17 @@ class LocalMockStore {
     return user;
   }
 
+  // Mock mode only: no credential verification happens here. Anything shipped
+  // in the client bundle is public, so passwords must never be checked (or
+  // stored) client-side. Real authentication is Hercules Auth in live mode.
   public authenticateWithPassword(
     email: string,
-    password: string,
+    _password: string,
   ): { success: boolean; user?: MockUser; error?: string } {
     const normalized = email.trim().toLowerCase();
 
-    // Specific check for Super Admin: ah.baalbaki@gmail.com
+    // Super Admin persona: ah.baalbaki@gmail.com
     if (normalized === "ah.baalbaki@gmail.com") {
-      if (password !== "//A!t3r3g0") {
-        return {
-          success: false,
-          error: "Invalid password for ah.baalbaki@gmail.com. Please check your credentials.",
-        };
-      }
       let superUser = this.db.users.find(
         (u) => u.email.toLowerCase() === "ah.baalbaki@gmail.com",
       );

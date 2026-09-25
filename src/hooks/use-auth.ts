@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import * as HerculesAuth from "@usehercules/auth/react";
 import { localMockStore } from "@/lib/local-mock-store.ts";
-
-const isLocalDev = import.meta.env.VITE_USE_EXTERNAL_AUTH !== "true";
+import { isLocalDev } from "@/lib/env.ts";
 
 export interface LocalAuthUser {
   id?: string;

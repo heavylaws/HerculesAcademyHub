@@ -1,6 +1,5 @@
 import { HerculesAuthProvider } from "@usehercules/auth/react";
-
-const isLocalDev = import.meta.env.VITE_USE_EXTERNAL_AUTH !== "true";
+import { isLocalDev } from "@/lib/env.ts";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   if (isLocalDev) {

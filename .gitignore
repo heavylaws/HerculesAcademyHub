@@ -35,3 +35,6 @@ tsconfig.tsbuildinfo
 
 # Archive directory
 archives/
+
+# Build artifacts (build locally; never commit bundles)
+dist.zip

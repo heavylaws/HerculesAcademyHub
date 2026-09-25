@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import ProtectedRoute from "./components/auth/protected-route.tsx";
 import { DevPersonaSwitcher } from "./components/ui/dev-persona-switcher.tsx";
+import { isLocalDev } from "@/lib/env.ts";
 
 // Code-split pages for high-performance lazy loading
 const Academies = lazy(() => import("./pages/admin/academies/page.tsx"));
@@ -42,8 +43,6 @@ function PageLoadingFallback() {
     </div>
   );
 }
-
-const isLocalDev = import.meta.env.VITE_USE_EXTERNAL_AUTH !== "true";
 
 export default function App() {
   return (
