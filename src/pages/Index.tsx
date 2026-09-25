@@ -1,7 +1,13 @@
-import { useState } from "react";
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  useMutation,
+} from "convex/react";
+import { api } from "@/convex/_generated/api.js";
+import { PasswordAuthForm } from "@/components/auth/password-auth-form.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
-import { SignInButton } from "@/components/ui/signin.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -119,7 +125,7 @@ function LiveLandingScreen() {
           The performance and biomechanics platform for sports academies.
         </p>
       </div>
-      <SignInButton size="lg" signInText="Sign In to Account" />
+      <PasswordAuthForm />
     </div>
   );
 }
@@ -352,6 +358,15 @@ function LandingScreen() {
 
 function IndexAuthenticated() {
   const { user, isLoading } = useCurrentUser();
+  const syncUser = useMutation(api.users.updateCurrentUser);
+  const synced = useRef(false);
+
+  // Pick up invites / guardian links created after this account was verified.
+  useEffect(() => {
+    if (isLocalDev || synced.current || !user || user.role) return;
+    synced.current = true;
+    void syncUser().catch(() => {});
+  }, [user, syncUser]);
 
   if (isLoading || user === undefined) {
     return (

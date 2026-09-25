@@ -11,8 +11,8 @@
 | **Frontend Framework**       | [React 19](https://react.dev/) + [Vite 8](https://vite.dev/) + [TypeScript](https://www.typescriptlang.org/)              |
 | **Styling & UI**             | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) + [Radix UI](https://www.radix-ui.com/) |
 | **Backend & Database**       | [Convex](https://www.convex.dev/) (Serverless Reactive Database & Functions)                                              |
-| **Authentication**           | [Hercules Auth](https://hercules.app/) (Managed OIDC / SSO)                                                               |
-| **AI Biomechanics Analysis** | Hercules AI Gateway → OpenAI Vision                                                                                       |
+| **Authentication**           | Convex Auth (email + password, email verified by one-time code)                                                           |
+| **AI Biomechanics Analysis** | OpenAI Vision (`OPENAI_API_KEY`)                                                                                          |
 | **Testing**                  | [Vitest](https://vitest.dev/) (Edge-runtime for Convex backend + jsdom for React frontend)                                |
 | **Package Manager**          | [pnpm v9](https://pnpm.io/)                                                                                               |
 
@@ -34,7 +34,7 @@
 │   ├── trainingPlans.ts    # Custom workout plans & exercise items
 │   ├── assessments.ts      # Metric tracking (vertical jump, sprint, etc.)
 │   ├── videoAnalyses.ts    # AI video upload & report querying
-│   ├── videoAnalysis.ts    # Node.js action invoking OpenAI via Hercules AI Gateway
+│   ├── videoAnalysis.ts    # Node.js action invoking OpenAI Vision
 │   ├── fees.ts             # Fee tracking, payment recording & notifications
 │   ├── invoices.ts         # Invoice lifecycle (draft, sent, paid, overdue)
 │   └── emails.ts           # Email dispatch for invites and fee updates
@@ -46,7 +46,7 @@
 │   ├── pages/              # Role-specific application pages and routing
 │   │   ├── admin/          # Platform admin: academy & billing management
 │   │   ├── athletes/       # Roster, athlete detail, plans, AI video analysis
-│   │   ├── auth/           # OIDC authentication callback
+│   │   ├── auth/           # legacy /auth/callback redirect
 │   │   ├── finance/        # Academy fee ledger & athlete "My Fees" view
 │   │   ├── invoices/       # Formal invoice creation and tracking
 │   │   ├── sessions/       # Session details & live attendance recording
@@ -102,18 +102,14 @@ cp .env.example .env.local
 Configure your environment settings in `.env.local`:
 
 ```env
-# Frontend
-# true = mock mode (no Convex/auth needed, demo personas). Omit for live mode.
+# true = mock mode (no backend needed, demo personas, no real login).
+# false = live mode against your Convex deployment.
 VITE_LOCAL_DEV=true
-VITE_CONVEX_URL=http://localhost:3000
-VITE_HERCULES_OIDC_AUTHORITY=https://01m1maqj19rrqvx7arxzrp6hdc.hercules-auth.com
-VITE_HERCULES_OIDC_CLIENT_ID=01M1MAQJ35TDC0XSZFK4F5FCFQ
-
-# Backend (Convex)
-HERCULES_OIDC_AUTHORITY=https://01m1maqj19rrqvx7arxzrp6hdc.hercules-auth.com
-HERCULES_OIDC_CLIENT_ID=01M1MAQJ35TDC0XSZFK4F5FCFQ
-HERCULES_API_KEY=<your-hercules-ai-api-key>
+VITE_CONVEX_URL=https://your-deployment.convex.cloud
 ```
+
+Backend secrets (Resend, OpenAI, auth keys, admin emails) are set on the Convex
+deployment, not in this file. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### 4. Running the Convex Backend
 

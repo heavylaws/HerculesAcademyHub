@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import * as HerculesAuth from "@usehercules/auth/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api.js";
 import { localMockStore } from "@/lib/local-mock-store.ts";
 import { isLocalDev } from "@/lib/env.ts";
 
@@ -55,7 +57,7 @@ function useLocalAuth() {
   return {
     isAuthenticated,
     isLoading: false,
-    error: null,
+    error: null as Error | null,
     user: currentUser
       ? {
           profile: {
@@ -75,7 +77,28 @@ function useLocalAuth() {
 }
 
 function useLiveAuth() {
-  return HerculesAuth.useAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { signOut } = useAuthActions();
+  const user = useQuery(api.users.getCurrentUser, isAuthenticated ? {} : "skip");
+
+  // Sign-in happens on the landing page's email/password form.
+  const signin = useCallback(async () => {
+    window.location.assign("/");
+  }, []);
+
+  return {
+    isAuthenticated,
+    isLoading,
+    error: null,
+    user: user
+      ? { profile: { sub: user._id, name: user.name, email: user.email } }
+      : null,
+    signin,
+    signout: signOut,
+    signinRedirect: signin,
+    signoutRedirect: signOut,
+    removeUser: signOut,
+  };
 }
 
 export function useAuth() {
@@ -120,7 +143,19 @@ function useLocalUser(): LocalAuthUser {
 }
 
 function useLiveUser(): LocalAuthUser {
-  return HerculesAuth.useUser() as LocalAuthUser;
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const user = useQuery(api.users.getCurrentUser, isAuthenticated ? {} : "skip");
+  return {
+    id: user?._id,
+    name: user?.name,
+    email: user?.email,
+    isAuthenticated,
+    isLoading: isLoading || (isAuthenticated && user === undefined),
+    error: null,
+    profile: user
+      ? { sub: user._id, name: user.name, email: user.email }
+      : undefined,
+  };
 }
 
 export function useUser(): LocalAuthUser {

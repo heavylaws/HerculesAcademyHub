@@ -121,4 +121,4 @@ export class LocalMockConvexClient {
   }
 }
 
-export const localMockConvexClient = new LocalMockConvexClient();
+export const localMockConvexClient = /* @__PURE__ */ new LocalMockConvexClient();

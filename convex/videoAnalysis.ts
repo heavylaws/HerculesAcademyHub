@@ -35,9 +35,11 @@ export const runAiAnalysis = internalAction({
     frames: v.array(v.string()),
   },
   handler: async (ctx, args): Promise<void> => {
+    // Talks to OpenAI directly (OPENAI_API_KEY). Set OPENAI_BASE_URL to use
+    // another OpenAI-compatible gateway instead.
     const openai = new OpenAI({
-      baseURL: "https://ai-gateway.hercules.app/v1",
-      apiKey: process.env.HERCULES_API_KEY,
+      apiKey: process.env.OPENAI_API_KEY,
+      baseURL: process.env.OPENAI_BASE_URL || undefined,
     });
 
     try {
@@ -56,7 +58,7 @@ export const runAiAnalysis = internalAction({
       }\n\nAnalyse the ${args.frames.length} video frame(s) above and provide structured performance feedback.`;
 
       const response = await openai.chat.completions.create({
-        model: "openai/gpt-5.6-sol",
+        model: process.env.OPENAI_VISION_MODEL || "gpt-4o",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {

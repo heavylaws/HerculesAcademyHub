@@ -32,13 +32,35 @@ export const createAcademy = mutation({
     ) {
       slug = `${baseSlug}-${suffix++}`;
     }
-    return await ctx.db.insert("academies", {
+    const academyId = await ctx.db.insert("academies", {
       name: args.name,
       slug,
       status: "active",
       createdBy: admin._id,
       createdAt: new Date().toISOString(),
     });
+    // Give a platform admin without a working academy one to operate in.
+    if (admin.role === "platform_admin" && !admin.academyId) {
+      await ctx.db.patch("users", admin._id, { academyId });
+    }
+    return academyId;
+  },
+});
+
+/**
+ * Platform admin: choose which academy the academy-scoped pages (athletes,
+ * teams, schedule, finance, ...) operate on.
+ */
+export const setActiveAcademy = mutation({
+  args: { academyId: v.id("academies") },
+  handler: async (ctx, args) => {
+    const admin = await requireRole(ctx, ["platform_admin"]);
+    const academy = await ctx.db.get("academies", args.academyId);
+    if (!academy) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Academy not found" });
+    }
+    await ctx.db.patch("users", admin._id, { academyId: args.academyId });
+    return null;
   },
 });
 
@@ -190,7 +212,8 @@ export const deleteAcademy = mutation({
     for (const u of staffUsers) {
       await ctx.db.patch("users", u._id, {
         academyId: undefined,
-        role: undefined,
+        // Platform admins only lose their active academy, never their role.
+        ...(u.role === "platform_admin" ? {} : { role: undefined }),
       });
     }
 

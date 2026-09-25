@@ -36,4 +36,5 @@ export const athletes = defineTable({
   .index("by_academy_and_pin", ["academyId", "checkInPin"])
   .index("by_email", ["email"])
   .index("by_user", ["userId"])
-  .index("by_guardian_user", ["guardianUserId"]);
+  .index("by_guardian_user", ["guardianUserId"])
+  .index("by_guardian_email", ["guardianEmail"]);

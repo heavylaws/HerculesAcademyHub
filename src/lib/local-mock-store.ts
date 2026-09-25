@@ -2183,4 +2183,5 @@ class LocalMockStore {
   }
 }
 
-export const localMockStore = new LocalMockStore();
+// Pure so live builds (where nothing uses it) drop the mock store and demo data.
+export const localMockStore = /* @__PURE__ */ new LocalMockStore();

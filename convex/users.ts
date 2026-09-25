@@ -1,104 +1,26 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server.js";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireRole, requireUser } from "./lib/auth.ts";
+import { onboardUser } from "./lib/onboarding.ts";
 import { userRoleValidator } from "./schema.ts";
 
 /**
- * Called after Hercules Auth sync. Creates the user row if new, and:
- * - if this is the very first user in the system, promotes them to platform_admin
- * - if a pending invite exists for their email, accepts it (assigns role + academy)
- * - if an athlete record matches their email, assigns athlete role and links athlete record
- * Must never take arguments; relied on by the auth callback.
+ * Re-runs onboarding for the signed-in user (idempotent). Onboarding normally
+ * happens in the Convex Auth callback when the email is verified; calling this
+ * on app load also picks up invites/guardian links created afterwards.
  */
 export const updateCurrentUser = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
       throw new ConvexError({
         code: "UNAUTHENTICATED",
         message: "User not logged in",
       });
     }
-
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique();
-    if (existing !== null) {
-      // If user is already registered, check if an unlinked athlete matches their email
-      if (existing.email && existing.academyId) {
-        const athlete = await ctx.db
-          .query("athletes")
-          .withIndex("by_academy_and_email", (q) =>
-            q.eq("academyId", existing.academyId!).eq("email", existing.email),
-          )
-          .first();
-        if (athlete && !athlete.userId) {
-          await ctx.db.patch("athletes", athlete._id, { userId: existing._id });
-        }
-      }
-      return existing._id;
-    }
-
-    // Determine if this is the first-ever user (platform bootstrap).
-    const anyUser = await ctx.db.query("users").first();
-    const isFirstUser = anyUser === null;
-
-    // Check for a pending invite matching this email.
-    const email = identity.email;
-    const invite = email
-      ? await ctx.db
-          .query("invites")
-          .withIndex("by_email_and_status", (q) =>
-            q.eq("email", email).eq("status", "pending"),
-          )
-          .first()
-      : null;
-
-    // Check if an athlete record with this email already exists
-    const athleteRecord = email
-      ? await ctx.db
-          .query("athletes")
-          .withIndex("by_email", (q) => q.eq("email", email))
-          .first()
-      : null;
-
-    const assignedRole = isFirstUser
-      ? "platform_admin"
-      : invite
-        ? invite.role
-        : athleteRecord
-          ? "athlete"
-          : undefined;
-
-    const assignedAcademyId = invite
-      ? invite.academyId
-      : athleteRecord
-        ? athleteRecord.academyId
-        : undefined;
-
-    const userId = await ctx.db.insert("users", {
-      name: identity.name,
-      email: identity.email,
-      tokenIdentifier: identity.tokenIdentifier,
-      role: assignedRole,
-      academyId: assignedAcademyId,
-    });
-
-    if (athleteRecord && !athleteRecord.userId) {
-      await ctx.db.patch("athletes", athleteRecord._id, { userId });
-    }
-
-    if (invite) {
-      await ctx.db.patch("invites", invite._id, {
-        status: "accepted",
-        acceptedAt: new Date().toISOString(),
-      });
-    }
-
+    await onboardUser(ctx, userId);
     return userId;
   },
 });
@@ -106,17 +28,11 @@ export const updateCurrentUser = mutation({
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
       return null;
     }
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique();
-    return user;
+    return await ctx.db.get("users", userId);
   },
 });
 

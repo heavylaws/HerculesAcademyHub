@@ -21,6 +21,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -47,6 +48,7 @@ const formSchema = z.object({
   phone: z.string(),
   guardianName: z.string(),
   guardianPhone: z.string(),
+  guardianEmail: z.union([z.literal(""), z.string().trim().email("Enter a valid email")]),
   notes: z.string(),
 });
 
@@ -64,6 +66,7 @@ const emptyValues: FormValues = {
   phone: "",
   guardianName: "",
   guardianPhone: "",
+  guardianEmail: "",
   notes: "",
 };
 
@@ -80,6 +83,7 @@ function athleteToFormValues(athlete: Doc<"athletes">): FormValues {
     phone: athlete.phone ?? "",
     guardianName: athlete.guardianName ?? "",
     guardianPhone: athlete.guardianPhone ?? "",
+    guardianEmail: athlete.guardianEmail ?? "",
     notes: athlete.notes ?? "",
   };
 }
@@ -125,6 +129,7 @@ export default function AthleteFormDialog({
         phone: values.phone || undefined,
         guardianName: values.guardianName || undefined,
         guardianPhone: values.guardianPhone || undefined,
+        guardianEmail: values.guardianEmail || undefined,
         notes: values.notes || undefined,
       };
       if (isEditing) {
@@ -337,6 +342,23 @@ export default function AthleteFormDialog({
                     <FormControl>
                       <Input placeholder="Optional" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="guardianEmail"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Guardian email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="Optional" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      The guardian signs up with this email to follow this
+                      athlete's schedule, fees and progress.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

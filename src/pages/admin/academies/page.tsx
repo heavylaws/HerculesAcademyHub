@@ -54,6 +54,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog.tsx";
+import { useCurrentUser } from "@/hooks/use-current-user.ts";
 import CreateAcademyDialog from "./_components/create-academy-dialog.tsx";
 import InviteAcademyAdminDialog from "./_components/invite-academy-admin-dialog.tsx";
 
@@ -61,6 +62,8 @@ export default function Academies() {
   const academies = useQuery(api.academies.listAcademies, {});
   const setStatus = useMutation(api.academies.setAcademyStatus);
   const deleteAcademy = useMutation(api.academies.deleteAcademy);
+  const setActiveAcademy = useMutation(api.academies.setActiveAcademy);
+  const { user } = useCurrentUser();
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteAcademy, setInviteAcademy] = useState<{
     id: Id<"academies">;
@@ -87,6 +90,19 @@ export default function Academies() {
         error instanceof ConvexError
           ? String((error.data as { message?: string }).message)
           : "Failed to update academy",
+      );
+    }
+  };
+
+  const handleSetActive = async (academyId: Id<"academies">, name: string) => {
+    try {
+      await setActiveAcademy({ academyId });
+      toast.success(`Now working in "${name}"`);
+    } catch (error) {
+      toast.error(
+        error instanceof ConvexError
+          ? String((error.data as { message?: string }).message)
+          : "Failed to switch academy",
       );
     }
   };
@@ -167,7 +183,14 @@ export default function Academies() {
                   <TableRow key={academy._id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{academy.name}</span>
+                        <span className="font-medium">
+                          {academy.name}
+                          {user?.academyId === academy._id && (
+                            <Badge variant="outline" className="ml-2">
+                              Working in
+                            </Badge>
+                          )}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           {academy.slug}
                         </span>
@@ -199,6 +222,14 @@ export default function Academies() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={user?.academyId === academy._id}
+                            onClick={() =>
+                              handleSetActive(academy._id, academy.name)
+                            }
+                          >
+                            Work in this academy
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() =>
                               setInviteAcademy({

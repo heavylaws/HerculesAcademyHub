@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.tsx";
 import { useCurrentUser } from "@/hooks/use-current-user.ts";
+import { isLocalDev } from "@/lib/env.ts";
 import VideoAssessmentStudio, {
   type VideoAnalysisItem,
 } from "./_components/video-assessment-studio.tsx";
@@ -112,7 +113,8 @@ export default function VideoHubPage() {
   // In offline mock mode, we can also load directly from mock store if available
   const allAnalyses: VideoAnalysisItem[] = useMemo(() => {
     if (analysesQuery) return analysesQuery;
-    return FALLBACK_ANALYSES;
+    // Sample data is for mock/demo mode only; never show fake records live.
+    return isLocalDev ? FALLBACK_ANALYSES : [];
   }, [analysesQuery]);
 
   const filteredAnalyses = useMemo(() => {

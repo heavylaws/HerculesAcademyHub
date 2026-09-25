@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { useParams } from "react-router-dom";
 import {
@@ -68,18 +69,35 @@ export default function MyFeesPage() {
 
   // athlete: use their own athleteId from profile; for others, use param
   const { athleteId } = useParams<{ athleteId?: string }>();
-  const aidFromProfile = useQuery(
-    api.athletes.getAthleteByUserId,
-    user?.role === "athlete" ? {} : "skip",
+  const myAthletes = useQuery(
+    api.athletes.listMyAthletes,
+    user?.role === "athlete" || user?.role === "guardian" ? {} : "skip",
   );
+  const [selectedAthleteId, setSelectedAthleteId] = useState<string>();
 
   const resolvedAthleteId =
-    (athleteId as Id<"athletes"> | undefined) ?? aidFromProfile?._id;
+    (athleteId as Id<"athletes"> | undefined) ??
+    (myAthletes?.find((a) => a._id === selectedAthleteId) ?? myAthletes?.[0])
+      ?._id;
 
   const fees = useQuery(
     api.fees.listFeesForAthlete,
     resolvedAthleteId ? { athleteId: resolvedAthleteId } : "skip",
   );
+
+  if (!athleteId && myAthletes && myAthletes.length === 0) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-2">
+        <h1 className="font-display text-2xl font-bold tracking-tight">
+          My Fees
+        </h1>
+        <p className="text-muted-foreground">
+          No athlete record is linked to your account yet. Ask your academy
+          admin to link it.
+        </p>
+      </div>
+    );
+  }
 
   if (fees === undefined || resolvedAthleteId === undefined) {
     return (
@@ -109,6 +127,20 @@ export default function MyFeesPage() {
         <p className="text-muted-foreground">
           Your current and past membership fee records.
         </p>
+        {!athleteId && myAthletes && myAthletes.length > 1 && (
+          <select
+            className="mt-3 rounded-md border bg-background px-3 py-2 text-sm"
+            value={resolvedAthleteId}
+            onChange={(e) => setSelectedAthleteId(e.target.value)}
+            aria-label="Athlete"
+          >
+            {myAthletes.map((a) => (
+              <option key={a._id} value={a._id}>
+                {a.firstName} {a.lastName}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Outstanding balance banner */}

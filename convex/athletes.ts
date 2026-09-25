@@ -1,6 +1,13 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server.js";
-import { requireAcademyMember, requireRole, requireUser } from "./lib/auth.ts";
+import {
+  listOwnAthletes,
+  requireAcademyMember,
+  requireAthleteAccess,
+  requireRole,
+  requireUser,
+} from "./lib/auth.ts";
+import { linkGuardianByEmail } from "./lib/onboarding.ts";
 import { athleteGenderValidator } from "./schema.ts";
 
 const athleteFields = {
@@ -15,8 +22,21 @@ const athleteFields = {
   phone: v.optional(v.string()),
   guardianName: v.optional(v.string()),
   guardianPhone: v.optional(v.string()),
+  guardianEmail: v.optional(v.string()),
   notes: v.optional(v.string()),
 };
+
+/** Lower-cases emails (links are matched by exact email) and drops blanks. */
+function normalizeEmails<T extends { email?: string; guardianEmail?: string }>(
+  fields: T,
+): T {
+  const clean = (e?: string) => e?.trim().toLowerCase() || undefined;
+  return {
+    ...fields,
+    email: clean(fields.email),
+    guardianEmail: clean(fields.guardianEmail),
+  };
+}
 
 /** Academy admin/coach: create a new athlete record in their academy. */
 export const createAthlete = mutation({
@@ -35,13 +55,15 @@ export const createAthlete = mutation({
         message: "First and last name are required",
       });
     }
-    return await ctx.db.insert("athletes", {
-      ...args,
+    const athleteId = await ctx.db.insert("athletes", {
+      ...normalizeEmails(args),
       academyId: user.academyId,
       status: "active",
       createdBy: user._id,
       createdAt: new Date().toISOString(),
     });
+    await linkGuardianByEmail(ctx, athleteId);
+    return athleteId;
   },
 });
 
@@ -65,7 +87,15 @@ export const updateAthlete = mutation({
         message: "First and last name are required",
       });
     }
-    await ctx.db.patch("athletes", athleteId, updates);
+    const normalized = normalizeEmails(updates);
+    const guardianChanged = normalized.guardianEmail !== athlete.guardianEmail;
+    await ctx.db.patch("athletes", athleteId, {
+      ...normalized,
+      ...(guardianChanged ? { guardianUserId: undefined } : {}),
+    });
+    if (guardianChanged) {
+      await linkGuardianByEmail(ctx, athleteId);
+    }
     return null;
   },
 });
@@ -91,7 +121,7 @@ export const setAthleteStatus = mutation({
   },
 });
 
-/** Lists athletes in the current user's academy. Coaches and academy admins see everyone; athletes see only themselves. */
+/** Lists athletes in the current user's academy. Staff see everyone; athletes see only themselves; guardians see their children. */
 export const listAthletes = query({
   args: { search: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -106,7 +136,13 @@ export const listAthletes = query({
       .collect();
 
     const visible =
-      user.role === "athlete" ? all.filter((a) => a.userId === user._id) : all;
+      user.role === "athlete"
+        ? all.filter((a) => a.userId === user._id)
+        : user.role === "guardian"
+          ? all.filter((a) => a.guardianUserId === user._id)
+          : user.role
+            ? all
+            : [];
 
     const search = args.search?.trim().toLowerCase();
     if (!search) {
@@ -154,7 +190,7 @@ export const bulkImportAthletes = mutation({
           continue;
         }
         await ctx.db.insert("athletes", {
-          ...a,
+          ...normalizeEmails(a),
           academyId: user.academyId,
           status: "active",
           createdBy: user._id,
@@ -185,25 +221,20 @@ export const getAthleteByUserId = query({
   },
 });
 
-/** Fetches a single athlete's detail record, scoped to the caller's academy. */
+/** Athlete records belonging to the caller: their own, or their children for guardians. */
+export const listMyAthletes = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    return await listOwnAthletes(ctx, user);
+  },
+});
+
+/** Fetches a single athlete's detail record, if the caller may see it. */
 export const getAthlete = query({
   args: { athleteId: v.id("athletes") },
   handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const athlete = await ctx.db.get("athletes", args.athleteId);
-    if (!athlete) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Athlete not found",
-      });
-    }
-    await requireAcademyMember(ctx, athlete.academyId);
-    if (user.role === "athlete" && athlete.userId !== user._id) {
-      throw new ConvexError({
-        code: "FORBIDDEN",
-        message: "You cannot view this athlete",
-      });
-    }
+    const { athlete } = await requireAthleteAccess(ctx, args.athleteId);
     return athlete;
   },
 });
@@ -235,6 +266,13 @@ export const linkAthleteToUser = mutation({
       throw new ConvexError({
         code: "NOT_FOUND",
         message: "No registered user found with that email address",
+      });
+    }
+
+    if (user.emailVerificationTime === undefined) {
+      throw new ConvexError({
+        code: "BAD_REQUEST",
+        message: "That user has not verified their email address yet",
       });
     }
 

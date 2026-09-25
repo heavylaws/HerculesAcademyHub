@@ -1,126 +1,140 @@
-# PeakForm Athletics (Hercules Academy) — Production Deployment Manual
+# PeakForm Athletics — Production Deployment
 
-This guide documents the procedures for deploying PeakForm Athletics to production, including containerization, Google Cloud Run, Vercel, and the Convex reactive backend.
+The app has two parts:
+
+1. **Backend — Convex Cloud.** Database, server functions, file storage and
+   authentication (Convex Auth: email + password, emails verified by code).
+2. **Frontend — static files** (`dist/`) served by nginx on your own server.
+
+```
+Browser ──HTTPS──► your server (nginx, static dist/)
+   │
+   └────WebSocket/HTTPS──► Convex Cloud (data, auth, emails via Resend, AI via OpenAI)
+```
+
+There is no Node server to run on your machine; nginx only serves files.
 
 ---
 
-## 1. System Architecture Overview
+## 1. Accounts you need
 
-PeakForm Athletics consists of two decoupled components:
-1. **Frontend Client**: React 19 Single-Page Application (Vite, TailwindCSS, Recharts, Lucide Icons).
-2. **Backend Engine**: Convex Serverless Reactive Database & Mutations with Hercules Auth OIDC verification and OpenAI video biomechanics pipeline.
+| Service                               | Why                                                 | Cost                          |
+| :------------------------------------ | :-------------------------------------------------- | :---------------------------- |
+| [Convex](https://convex.dev)          | Backend + database + auth                           | Free tier is enough to start  |
+| [Resend](https://resend.com)          | Sign-up codes, password resets, invite & fee emails | Free tier: 3,000 emails/month |
+| [OpenAI](https://platform.openai.com) | Video biomechanics analysis (optional)              | Pay per use                   |
+| A domain + server                     | Hosting the site                                    | —                             |
 
-```
-                    ┌────────────────────────┐
-                    │      Browser User      │
-                    └───────────┬────────────┘
-                                │
-                 ┌──────────────┴──────────────┐
-                 ▼                             ▼
-       ┌───────────────────┐         ┌───────────────────┐
-       │   Frontend SPA    │         │  Hercules Auth    │
-       │ (Cloud Run / Nginx│         │   (OIDC Server)   │
-       │   or Vercel CDN)  │         └─────────┬─────────┘
-       └─────────┬─────────┘                   │
-                 │ WebSockets & Queries        │ JWT Verification
-                 ▼                             ▼
-       ┌─────────────────────────────────────────────────┐
-       │             Convex Cloud Deployment             │
-       │    (Documents, Realtime Subscriptions, AI)     │
-       └─────────────────────────────────────────────────┘
-```
+In Resend, **verify your domain** (add the DNS records it shows). Until you do,
+Resend only delivers to your own address, so nobody else can sign up.
 
 ---
 
-## 2. Environment Variables Checklist
+## 2. Backend (Convex) — one-time setup
 
-### Frontend Variables (Embedded during `vite build`)
-
-| Variable | Description | Example Production Value |
-| :--- | :--- | :--- |
-| `VITE_LOCAL_DEV` | `true` enables mock mode (localStorage data + demo personas, **no real auth**). Leave unset or `false` in production | `false` |
-| `VITE_CONVEX_URL` | Production Convex deployment URL | `https://peakform-production.convex.cloud` |
-| `VITE_HERCULES_OIDC_AUTHORITY` | Production OIDC issuer URL | `https://01m1maqj19rrqvx7arxzrp6hdc.hercules-auth.com` |
-| `VITE_HERCULES_OIDC_CLIENT_ID` | Registered Client ID | `01M1MAQJ35TDC0XSZFK4F5FCFQ` |
-| `VITE_HERCULES_WEBSITE_ID` | Site identification tag | `peakform-athletics` |
-
-### Convex Backend Variables (`npx convex env set <KEY> <VAL>`)
-
-| Variable | Description |
-| :--- | :--- |
-| `HERCULES_OIDC_AUTHORITY` | Same issuer URL for JWT cryptographic verification |
-| `HERCULES_OIDC_CLIENT_ID` | Client ID matching frontend audience |
-| `HERCULES_API_KEY` | API token for OpenAI biomechanics video analysis |
-
----
-
-## 3. Option A: Container Deployment (Docker / Google Cloud Run)
-
-### Local Docker Verification
-Test the production container locally:
-```bash
-# 1. Build container image
-docker build -t peakform-athletics:local .
-
-# 2. Run container on port 8080
-docker run -d -p 8080:80 --name peakform peakform-athletics:local
-
-# 3. Test health check
-curl http://localhost:8080/healthz
-# Returns: healthy
-```
-
-### Google Cloud Run Deployment
-Deploy via automated script:
-
-**On Linux/macOS:**
-```bash
-export PROJECT_ID="your-gcp-project-id"
-export REGION="us-central1"
-chmod +x scripts/deploy-cloudrun.sh
-./scripts/deploy-cloudrun.sh
-```
-
-**On Windows (PowerShell):**
-```powershell
-.\scripts\deploy-cloudrun.ps1 -ProjectId "your-gcp-project-id" -Region "us-central1"
-```
-
----
-
-## 4. Option B: Vercel Zero-Config Deployment
-
-The repository includes a production-ready `vercel.json` with SPA routing and HTTP cache headers:
-
-1. Import the repository into your Vercel Dashboard.
-2. Configure **Build Command**: `npm run build` or `pnpm build`.
-3. Set **Output Directory**: `dist`.
-4. Add the frontend environment variables from Section 2.
-5. Deploy.
-
----
-
-## 5. Convex Backend Production Deployment
-
-To publish database schemas, indexes, and serverless mutations to Convex production:
+From the project folder on your development machine:
 
 ```bash
-# 1. Log in to Convex CLI
-npx convex login
+# Log in and create the project (interactive: pick "create a new project").
+npx convex dev --once
 
-# 2. Deploy to production environment
+# Generate the signing keys Convex Auth needs and store them in the deployment.
+# Run it for production too when asked, or later with: npx @convex-dev/auth --prod
+npx @convex-dev/auth
+```
+
+Set the production environment variables (Convex dashboard → your project →
+Production → Settings → Environment Variables, or with `npx convex env set --prod`):
+
+| Variable                  | Example                                     | Required                                        |
+| :------------------------ | :------------------------------------------ | :---------------------------------------------- |
+| `SITE_URL`                | `https://academy.example.com`               | yes — used in email links                       |
+| `PLATFORM_ADMIN_EMAILS`   | `you@example.com`                           | yes — who becomes super admin (comma-separated) |
+| `RESEND_API_KEY`          | `re_...`                                    | yes                                             |
+| `EMAIL_FROM`              | `PeakForm Athletics <no-reply@example.com>` | yes — must be on your verified Resend domain    |
+| `JWT_PRIVATE_KEY`, `JWKS` | _(set by `npx @convex-dev/auth`)_           | yes                                             |
+| `OPENAI_API_KEY`          | `sk-...`                                    | only for video analysis                         |
+| `OPENAI_VISION_MODEL`     | `gpt-4o`                                    | optional; any OpenAI vision-capable model       |
+
+Deploy the backend:
+
+```bash
 npx convex deploy
+```
 
-# 3. Set production backend environment keys
-npx convex env set HERCULES_OIDC_AUTHORITY https://01m1maqj19rrqvx7arxzrp6hdc.hercules-auth.com
-npx convex env set HERCULES_OIDC_CLIENT_ID 01M1MAQJ35TDC0XSZFK4F5FCFQ
-npx convex env set HERCULES_API_KEY "your-ai-gateway-key"
+It prints the production URL, e.g. `https://happy-animal-123.convex.cloud`.
+That is your `VITE_CONVEX_URL`.
+
+Re-run `npx convex deploy` whenever files in `convex/` change.
+
+---
+
+## 3. Frontend — build
+
+`VITE_LOCAL_DEV` must **not** be `true` for a real site (that is the offline demo
+mode with no real login). The build refuses to run in live mode without an
+`https://` Convex URL.
+
+```bash
+VITE_LOCAL_DEV=false VITE_CONVEX_URL=https://happy-animal-123.convex.cloud npm run build
+tar -czf release.tar.gz -C dist .
+```
+
+(`.env.local` sets `VITE_LOCAL_DEV=true` for local development; the command-line
+values above override it.)
+
+---
+
+## 4. Frontend — serve with nginx
+
+Upload `release.tar.gz` and unpack it into the web root:
+
+```bash
+sudo mkdir -p /var/www/peakform
+sudo tar -xzf release.tar.gz -C /var/www/peakform
+```
+
+Use the repo's `nginx.conf` as the server block, changing `root` to
+`/var/www/peakform` and `server_name` to your domain. The important part is the
+SPA fallback (`try_files $uri $uri/ /index.html;`) so deep links work.
+
+Enable HTTPS (required — browsers and Convex Auth expect it):
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d academy.example.com
+```
+
+Or with Docker instead of a host nginx:
+
+```bash
+docker build --build-arg VITE_CONVEX_URL=https://happy-animal-123.convex.cloud -t peakform .
+docker run -d -p 8080:80 --restart unless-stopped peakform
 ```
 
 ---
 
-## 6. OIDC Redirect URI Whitelist
+## 5. First login
 
-After deploying the frontend (e.g. `https://peakform.app`), register the callback URL in Hercules Auth console:
-* `https://peakform.app/auth/callback`
-* `https://peakform.app/`
+1. Open `https://your-domain`, choose **Create an account**, and sign up with an
+   address listed in `PLATFORM_ADMIN_EMAILS`.
+2. Enter the 8-digit code from the email. You are now the platform admin.
+3. **Admin → Academies**: create your academy (you are switched into it
+   automatically; with several academies use **Work in this academy**).
+4. Invite academy admins / coaches / accounting staff by email. They sign up
+   with that exact email and get their role once their email is verified.
+5. Add athletes. An athlete's **email** lets the athlete sign in; the
+   **guardian email** lets a parent sign up and follow that athlete.
+
+Anyone else who signs up sees a "Waiting for access" screen until invited.
+
+---
+
+## 6. Updating the site
+
+```bash
+git pull
+npx convex deploy                      # if convex/ changed
+VITE_LOCAL_DEV=false VITE_CONVEX_URL=... npm run build
+tar -czf release.tar.gz -C dist .      # upload and unpack as in step 4
+```

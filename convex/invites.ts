@@ -56,14 +56,17 @@ export const createInvite = mutation({
       .withIndex("by_email", (q) => q.eq("email", email))
       .first();
 
-    if (existingUser) {
-      if (existingUser.role) {
-        throw new ConvexError({
-          code: "CONFLICT",
-          message: "A user with this email already belongs to an academy",
-        });
-      }
+    if (existingUser?.role) {
+      throw new ConvexError({
+        code: "CONFLICT",
+        message: "A user with this email already belongs to an academy",
+      });
+    }
 
+    // Only a verified email may receive the role right away; an unverified
+    // account with this email could belong to someone else. Otherwise the
+    // invite stays pending and is applied when the email is verified.
+    if (existingUser && existingUser.emailVerificationTime !== undefined) {
       // User signed up previously and is waiting on the Pending Access screen.
       await ctx.db.patch("users", existingUser._id, {
         role: args.role,

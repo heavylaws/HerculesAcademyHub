@@ -1,4 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { academies } from "./schema/academies.ts";
 import { invites, userRoleValidator } from "./schema/invites.ts";
@@ -31,14 +32,22 @@ import {
 } from "./schema/messages.ts";
 
 export default defineSchema({
+  ...authTables,
+  // Convex Auth's users table (fields name..isAnonymous and the "email" index
+  // are required by the library), extended with app role + academy.
   users: defineTable({
-    tokenIdentifier: v.string(),
     name: v.optional(v.string()),
+    image: v.optional(v.string()),
     email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
     role: v.optional(userRoleValidator),
     academyId: v.optional(v.id("academies")),
   })
-    .index("by_token", ["tokenIdentifier"])
+    .index("email", ["email"])
+    .index("phone", ["phone"])
     .index("by_academy", ["academyId"])
     .index("by_email", ["email"]),
 

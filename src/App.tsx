@@ -224,7 +224,7 @@ export default function App() {
             <span className="font-semibold text-primary">System Online</span>
           </div>
         )}
-        <DevPersonaSwitcher />
+        {isLocalDev && <DevPersonaSwitcher />}
       </BrowserRouter>
     </DefaultProviders>
   );

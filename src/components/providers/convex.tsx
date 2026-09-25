@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { ConvexProviderWithHerculesAuth } from "@usehercules/auth/convex-react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { localMockConvexClient } from "@/lib/local-mock-convex-client.ts";
 import { useAuth } from "@/hooks/use-auth.ts";
@@ -31,9 +31,7 @@ function LocalConvexProvider({ children }: { children: React.ReactNode }) {
 
 function LiveConvexProvider({ children }: { children: React.ReactNode }) {
   return (
-    <ConvexProviderWithHerculesAuth client={liveConvex}>
-      {children}
-    </ConvexProviderWithHerculesAuth>
+    <ConvexAuthProvider client={liveConvex}>{children}</ConvexAuthProvider>
   );
 }
 

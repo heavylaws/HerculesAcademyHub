@@ -1,6 +1,12 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server.js";
-import { requireAcademyMember, requireRole, requireUser } from "./lib/auth.ts";
+import {
+  listOwnAthletes,
+  requireAcademyMember,
+  requireAthleteAccess,
+  requireRole,
+  requireUser,
+} from "./lib/auth.ts";
 import { attendanceStatusValidator } from "./schema.ts";
 import type { Doc } from "./_generated/dataModel.d.ts";
 
@@ -150,21 +156,22 @@ export const listSessionsForAcademy = query({
       }),
     );
 
-    if (user.role !== "athlete") {
+    if (user.role !== "athlete" && user.role !== "guardian") {
       return withTeamName;
     }
 
-    const athlete = await ctx.db
-      .query("athletes")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .first();
-    if (!athlete) {
-      return [];
-    }
-    const memberships = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_athlete", (q) => q.eq("athleteId", athlete._id))
-      .collect();
+    // Athletes see their own teams' sessions; guardians their children's.
+    const ownAthletes = await listOwnAthletes(ctx, user);
+    const memberships = (
+      await Promise.all(
+        ownAthletes.map((athlete) =>
+          ctx.db
+            .query("teamMembers")
+            .withIndex("by_athlete", (q) => q.eq("athleteId", athlete._id))
+            .collect(),
+        ),
+      )
+    ).flat();
     const teamIds = new Set(memberships.map((m) => m.teamId));
     return withTeamName.filter((s) => teamIds.has(s.teamId));
   },
@@ -235,7 +242,7 @@ export const getAthleteAttendanceStats = query({
         code: "NOT_FOUND",
         message: "Athlete not found",
       });
-    await requireAcademyMember(ctx, athlete.academyId);
+    await requireAthleteAccess(ctx, args.athleteId);
 
     // Get all teams this athlete is on
     const memberships = await ctx.db

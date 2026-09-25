@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, internalQuery } from "./_generated/server.js";
 import { internal } from "./_generated/api.js";
-import { requireRole } from "./lib/auth.ts";
+import { requireAthleteAccess, requireRole } from "./lib/auth.ts";
 import { feeStatusValidator } from "./schema.ts";
 import type { Doc } from "./_generated/dataModel.d.ts";
 
@@ -242,7 +242,7 @@ export const _getFeeForEmail = internalQuery({
 export const listFeesForAthlete = query({
   args: { athleteId: v.id("athletes") },
   handler: async (ctx, args) => {
-    const user = await requireRole(ctx, [...FINANCE_ROLES, "athlete", "coach"]);
+    await requireAthleteAccess(ctx, args.athleteId);
 
     const fees = await ctx.db
       .query("athleteFees")

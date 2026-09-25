@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server.js";
-import { requireRole, requireAcademyMember } from "./lib/auth.ts";
+import { requireAcademyMember, requireAthleteAccess, requireRole } from "./lib/auth.ts";
 import { internal } from "./_generated/api.js";
 import type { Doc } from "./_generated/dataModel.d.ts";
 
@@ -89,7 +89,7 @@ export const listAnalysesForAthlete = query({
         code: "NOT_FOUND",
         message: "Athlete not found",
       });
-    await requireAcademyMember(ctx, athlete.academyId);
+    await requireAthleteAccess(ctx, args.athleteId);
 
     const records = await ctx.db
       .query("videoAnalyses")

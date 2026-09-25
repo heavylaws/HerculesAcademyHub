@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server.js";
-import { requireAcademyMember, requireRole } from "./lib/auth.ts";
+import { requireAcademyMember, requireAthleteAccess, requireRole } from "./lib/auth.ts";
 import type { Doc } from "./_generated/dataModel.d.ts";
 
 /** Trainer records a new assessment data point for an athlete. */
@@ -91,7 +91,7 @@ export const listAssessmentsForAthlete = query({
         message: "Athlete not found",
       });
     }
-    await requireAcademyMember(ctx, athlete.academyId);
+    await requireAthleteAccess(ctx, args.athleteId);
 
     const records = await ctx.db
       .query("assessments")

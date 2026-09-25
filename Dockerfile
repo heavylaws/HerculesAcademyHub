@@ -21,7 +21,9 @@ RUN pnpm install --frozen-lockfile || npm install
 # Copy application source code
 COPY . .
 
-# Build production bundle with type checking
+# Build production bundle with type checking (live mode: real Convex backend)
+ARG VITE_CONVEX_URL
+ENV VITE_LOCAL_DEV=false VITE_CONVEX_URL=${VITE_CONVEX_URL}
 RUN npm run build
 
 # ------------------------------------------------------------------------------

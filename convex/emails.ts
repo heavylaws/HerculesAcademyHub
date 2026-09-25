@@ -1,18 +1,11 @@
 "use node";
 
 import escapeHtml from "escape-html";
-import { Hercules } from "@usehercules/sdk";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server.js";
 import { internal } from "./_generated/api.js";
+import { sendEmail, siteUrl } from "./lib/email.ts";
 
-const hercules = new Hercules({
-  apiKey: process.env.HERCULES_API_KEY!,
-  apiVersion: "2025-12-09",
-});
-
-const FROM = "PeakForm Athletics <ahmadbaalbaki.sc@gmail.com>";
-const APP_URL = "https://01m1maqj19rrqvx7arxzrp6hdc.hercules-dev.com";
 
 /** Send an academy staff invite email. */
 export const sendInviteEmail = internalAction({
@@ -27,7 +20,7 @@ export const sendInviteEmail = internalAction({
     const safeAcademy = escapeHtml(academyName);
     const safeRole = escapeHtml(role.replace("_", " "));
     const safeEmail = escapeHtml(to);
-    const appUrl = APP_URL;
+    const appUrl = siteUrl();
 
     const html = `
 <!DOCTYPE html>
@@ -102,8 +95,7 @@ ${appUrl}
 
 If you weren't expecting this invite, ignore this email.`;
 
-    await hercules.email.send({
-      from: FROM,
+    await sendEmail({
       to,
       subject: `You've been invited to ${academyName} on PeakForm Athletics`,
       html,
@@ -168,7 +160,7 @@ export const sendFeeNotification = internalAction({
           </div>
         </div>
         <p style="margin:0 0 20px;font-size:14px;color:#9ba3b8;">Please contact your academy admin if you have questions.</p>`;
-      bodyText = `Hi ${fee.athleteName},\n\nA new fee has been added:\n${fee.label}\nAmount: ${fee.currency} ${fee.amountDue.toFixed(2)}\nDue: ${fee.dueDate}\n\nSign in to view details: ${APP_URL}`;
+      bodyText = `Hi ${fee.athleteName},\n\nA new fee has been added:\n${fee.label}\nAmount: ${fee.currency} ${fee.amountDue.toFixed(2)}\nDue: ${fee.dueDate}\n\nSign in to view details: ${siteUrl()}`;
     } else if (args.type === "status_change") {
       const status = args.newStatus ?? "updated";
       const statusLabel =
@@ -201,7 +193,7 @@ export const sendFeeNotification = internalAction({
             <span style="font-size:14px;font-weight:700;color:${statusColor};">${escapeHtml(statusLabel)}</span>
           </div>
         </div>`;
-      bodyText = `Hi ${fee.athleteName},\n\nYour fee "${fee.label}" status has changed to: ${statusLabel}\n\nSign in for details: ${APP_URL}`;
+      bodyText = `Hi ${fee.athleteName},\n\nYour fee "${fee.label}" status has changed to: ${statusLabel}\n\nSign in for details: ${siteUrl()}`;
     } else {
       const paid = args.amountPaid ?? 0;
       subject = `Payment received: ${fee.label}`;
@@ -221,7 +213,7 @@ export const sendFeeNotification = internalAction({
           </div>
         </div>
         <p style="margin:0;font-size:14px;color:#b5e853;font-weight:600;">Thank you — your fee is now marked as paid.</p>`;
-      bodyText = `Hi ${fee.athleteName},\n\nPayment received for "${fee.label}": ${fee.currency} ${paid.toFixed(2)}\nYour fee is now marked as paid.\n\nSign in for details: ${APP_URL}`;
+      bodyText = `Hi ${fee.athleteName},\n\nPayment received for "${fee.label}": ${fee.currency} ${paid.toFixed(2)}\nYour fee is now marked as paid.\n\nSign in for details: ${siteUrl()}`;
     }
 
     const html = `
@@ -236,7 +228,7 @@ export const sendFeeNotification = internalAction({
         <tr><td style="padding:32px;">
           <h1 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#fff;">${escapeHtml(headline)}</h1>
           ${bodyHtml}
-          <a href="${APP_URL}" style="display:inline-block;background:#b5e853;color:#0f1117;font-size:14px;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;margin-top:8px;">View in PeakForm</a>
+          <a href="${siteUrl()}" style="display:inline-block;background:#b5e853;color:#0f1117;font-size:14px;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;margin-top:8px;">View in PeakForm</a>
         </td></tr>
         <tr><td style="padding:16px 32px;border-top:1px solid #2a2d3a;">
           <p style="margin:0;font-size:12px;color:#4b5563;">PeakForm Athletics — your performance platform</p>
@@ -246,8 +238,7 @@ export const sendFeeNotification = internalAction({
   </table>
 </body></html>`;
 
-    await hercules.email.send({
-      from: FROM,
+    await sendEmail({
       to: fee.athleteEmail,
       subject,
       html,
