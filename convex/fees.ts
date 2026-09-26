@@ -228,12 +228,19 @@ export const _getFeeForEmail = internalQuery({
     const fee = await ctx.db.get("athleteFees", args.feeId);
     if (!fee) return null;
     const athlete = await ctx.db.get("athletes", fee.athleteId);
+    const payments = await ctx.db
+      .query("feePayments")
+      .withIndex("by_fee", (q) => q.eq("feeId", fee._id))
+      .collect();
+    const totalPaid = payments.reduce((s, p) => s + p.amountPaid, 0);
     return {
       ...fee,
       athleteName: athlete
         ? `${athlete.firstName} ${athlete.lastName}`
         : "Athlete",
       athleteEmail: athlete?.email ?? null,
+      guardianEmail: athlete?.guardianEmail ?? null,
+      remainingBalance: Math.max(0, fee.amountDue - totalPaid),
     };
   },
 });

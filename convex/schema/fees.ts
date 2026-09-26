@@ -21,10 +21,38 @@ export const athleteFees = defineTable({
   notes: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.string(),
+  // Set when generated from a recurring fee schedule: which schedule and
+  // which billing month ("YYYY-MM"), so a month is never billed twice.
+  scheduleId: v.optional(v.id("feeSchedules")),
+  period: v.optional(v.string()),
+  // When the "due soon" reminder / overdue notice were emailed.
+  reminderSentAt: v.optional(v.string()),
+  overdueNotifiedAt: v.optional(v.string()),
 })
   .index("by_academy", ["academyId"])
   .index("by_athlete", ["athleteId"])
-  .index("by_academy_and_status", ["academyId", "status"]);
+  .index("by_academy_and_status", ["academyId", "status"])
+  .index("by_status_and_dueDate", ["status", "dueDate"])
+  .index("by_schedule_and_period", ["scheduleId", "period"]);
+
+/** A recurring monthly fee for one athlete (e.g. "Monthly membership"). */
+export const feeSchedules = defineTable({
+  academyId: v.id("academies"),
+  athleteId: v.id("athletes"),
+  label: v.string(),
+  amount: v.number(),
+  currency: v.string(),
+  // Day of the month the fee is due (1-28, so it exists in every month).
+  dueDay: v.number(),
+  // First billing month, "YYYY-MM".
+  startPeriod: v.string(),
+  active: v.boolean(),
+  createdBy: v.id("users"),
+  createdAt: v.string(),
+})
+  .index("by_academy", ["academyId"])
+  .index("by_athlete", ["athleteId"])
+  .index("by_active", ["active"]);
 
 /** Payment event log — one row per payment received */
 export const feePayments = defineTable({

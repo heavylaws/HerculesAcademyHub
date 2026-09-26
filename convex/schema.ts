@@ -17,7 +17,12 @@ import {
 } from "./schema/trainingPlans.ts";
 import { assessments } from "./schema/assessments.ts";
 import { videoAnalyses } from "./schema/videoAnalyses.ts";
-import { athleteFees, feePayments, feeStatusValidator } from "./schema/fees.ts";
+import {
+  athleteFees,
+  feePayments,
+  feeSchedules,
+  feeStatusValidator,
+} from "./schema/fees.ts";
 import { invoices, invoiceStatusValidator } from "./schema/invoices.ts";
 import {
   announcements,
@@ -64,6 +69,7 @@ export default defineSchema({
   videoAnalyses,
   athleteFees,
   feePayments,
+  feeSchedules,
   invoices,
   announcements,
   announcementReads,

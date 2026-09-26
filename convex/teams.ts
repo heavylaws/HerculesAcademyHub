@@ -136,7 +136,7 @@ export const getTeam = query({
     if (!team) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Team not found" });
     }
-    await requireAcademyMember(ctx, team.academyId);
+    const user = await requireAcademyMember(ctx, team.academyId);
 
     const members = await ctx.db
       .query("teamMembers")
@@ -146,6 +146,29 @@ export const getTeam = query({
       await Promise.all(members.map((m) => ctx.db.get("athletes", m.athleteId)))
     ).filter((a): a is Doc<"athletes"> => a !== null);
 
+    // Teammates (athletes, guardians) only see names; contact details, birth
+    // dates, notes and check-in PINs are staff-only.
+    const isStaff =
+      user.role === "platform_admin" ||
+      user.role === "academy_admin" ||
+      user.role === "coach" ||
+      user.role === "accounting";
+    if (!isStaff) {
+      return {
+        team,
+        roster: roster.map((a) => ({
+          _id: a._id,
+          _creationTime: a._creationTime,
+          academyId: a.academyId,
+          firstName: a.firstName,
+          lastName: a.lastName,
+          sport: a.sport,
+          status: a.status,
+          createdBy: a.createdBy,
+          createdAt: a.createdAt,
+        })),
+      };
+    }
     return { team, roster };
   },
 });

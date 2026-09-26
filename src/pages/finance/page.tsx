@@ -87,6 +87,7 @@ import {
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { cn } from "@/lib/utils.ts";
 import RecordPaymentDialog from "./_components/record-payment-dialog.tsx";
+import RecurringFees from "./_components/recurring-fees.tsx";
 
 type FeeStatus = "unpaid" | "partially_paid" | "paid" | "overdue" | "waived";
 
@@ -156,7 +157,9 @@ type FeeWithAthlete = {
 export default function FinancePage() {
   const { user } = useCurrentUser();
   const canManage =
-    user?.role === "academy_admin" || user?.role === "accounting";
+    user?.role === "academy_admin" ||
+    user?.role === "accounting" ||
+    user?.role === "platform_admin";
 
   const [statusFilter, setStatusFilter] = useState<FeeStatus | "all">("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -263,6 +266,8 @@ export default function FinancePage() {
           );
         })}
       </div>
+
+      {canManage && <RecurringFees />}
 
       {/* Fees table */}
       <Card>

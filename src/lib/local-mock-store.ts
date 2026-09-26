@@ -35,6 +35,20 @@ import {
   type MockMessage,
 } from "./local-mock-data.ts";
 
+export interface MockFeeSchedule {
+  _id: string;
+  academyId: string;
+  athleteId: string;
+  label: string;
+  amount: number;
+  currency: string;
+  dueDay: number;
+  startPeriod: string;
+  active: boolean;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface MockDatabase {
   academies: MockAcademy[];
   users: MockUser[];
@@ -48,6 +62,7 @@ export interface MockDatabase {
   assessments: MockAssessment[];
   athleteFees: MockAthleteFee[];
   feePayments: MockFeePayment[];
+  feeSchedules: MockFeeSchedule[];
   invoices: MockInvoice[];
   invites: MockInvite[];
   announcements: MockAnnouncement[];
@@ -73,6 +88,7 @@ function getInitialDb(): MockDatabase {
     assessments: [...SEED_ASSESSMENTS],
     athleteFees: [...SEED_FEES],
     feePayments: [...SEED_FEE_PAYMENTS],
+    feeSchedules: [],
     invoices: [...SEED_INVOICES],
     invites: [...SEED_INVITES],
     announcements: [...SEED_ANNOUNCEMENTS],
@@ -110,6 +126,7 @@ class LocalMockStore {
         return initial;
       }
       const parsed: MockDatabase = JSON.parse(raw);
+      parsed.feeSchedules ??= [];
       // Reconcile any missing seed users (e.g. guardian persona, super admin)
       for (const seedUser of SEED_USERS) {
         const existing = parsed.users.find((u) => u._id === seedUser._id || u.email.toLowerCase() === seedUser.email.toLowerCase());
@@ -920,6 +937,18 @@ class LocalMockStore {
 
       case "academies:getMyAcademy": {
         return this.db.academies.find((a) => a._id === academyId) ?? null;
+      }
+
+      case "feeAutomation:listFeeSchedules": {
+        return this.db.feeSchedules
+          .filter((s) => s.academyId === academyId)
+          .map((s) => {
+            const a = this.db.athletes.find((x) => x._id === s.athleteId);
+            return {
+              ...s,
+              athleteName: a ? `${a.firstName} ${a.lastName}` : "Unknown athlete",
+            };
+          });
       }
 
       case "athletes:listMyAthletes": {
@@ -1792,6 +1821,70 @@ class LocalMockStore {
         const assessmentId = args.assessmentId as string;
         this.db.assessments = this.db.assessments.filter(
           (a) => a._id !== assessmentId,
+        );
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "feeAutomation:createFeeSchedules": {
+        if (!academyId) throw new Error("No academy");
+        const today = nowIso.slice(0, 10);
+        const period = today.slice(0, 7);
+        const ids = args.athleteIds as string[];
+        for (const athleteId of ids) {
+          const schedule: MockFeeSchedule = {
+            _id: `sched_${Date.now()}_${athleteId}`,
+            academyId,
+            athleteId,
+            label: (args.label as string).trim(),
+            amount: Number(args.amount),
+            currency: (args.currency as string) || "USD",
+            dueDay: Number(args.dueDay),
+            startPeriod: args.startPeriod as string,
+            active: true,
+            createdBy: user?._id ?? "usr_accounting",
+            createdAt: nowIso,
+          };
+          this.db.feeSchedules.push(schedule);
+          if (schedule.startPeriod <= period) {
+            let dueDate = `${period}-${String(schedule.dueDay).padStart(2, "0")}`;
+            if (dueDate < today) {
+              const d = new Date(`${today}T00:00:00Z`);
+              d.setUTCDate(d.getUTCDate() + 7);
+              dueDate = d.toISOString().slice(0, 10);
+            }
+            this.db.athleteFees.unshift({
+              _id: `fee_${Date.now()}_${athleteId}`,
+              academyId,
+              athleteId,
+              label: `${schedule.label} – ${new Date(`${period}-01T00:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}`,
+              amountDue: schedule.amount,
+              currency: schedule.currency,
+              dueDate,
+              status: "unpaid",
+              createdBy: schedule.createdBy,
+              createdAt: nowIso,
+            });
+          }
+        }
+        this.saveDb();
+        this.notifyAll();
+        return ids.length;
+      }
+
+      case "feeAutomation:setFeeScheduleActive": {
+        const schedule = this.db.feeSchedules.find((s) => s._id === args.scheduleId);
+        if (!schedule) throw new Error("Schedule not found");
+        schedule.active = Boolean(args.active);
+        this.saveDb();
+        this.notifyAll();
+        return null;
+      }
+
+      case "feeAutomation:deleteFeeSchedule": {
+        this.db.feeSchedules = this.db.feeSchedules.filter(
+          (s) => s._id !== args.scheduleId,
         );
         this.saveDb();
         this.notifyAll();

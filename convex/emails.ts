@@ -115,6 +115,8 @@ export const sendFeeNotification = internalAction({
       v.literal("new_fee"),
       v.literal("status_change"),
       v.literal("payment_received"),
+      v.literal("reminder"),
+      v.literal("overdue"),
     ),
     newStatus: v.optional(v.string()),
     amountPaid: v.optional(v.number()),
@@ -124,7 +126,16 @@ export const sendFeeNotification = internalAction({
     const fee = await ctx.runQuery(internal.fees._getFeeForEmail, {
       feeId: args.feeId,
     });
-    if (!fee || !fee.athleteEmail) return; // no email on file — skip silently
+    if (!fee) return;
+    // Athlete and guardian (the one who usually pays for a minor), deduplicated.
+    const recipients = Array.from(
+      new Set(
+        [fee.athleteEmail, fee.guardianEmail]
+          .filter((e): e is string => Boolean(e))
+          .map((e) => e.toLowerCase()),
+      ),
+    );
+    if (recipients.length === 0) return; // no email on file — skip silently
 
     const safeName = escapeHtml(fee.athleteName);
     const safeLabel = escapeHtml(fee.label);
@@ -161,6 +172,43 @@ export const sendFeeNotification = internalAction({
         </div>
         <p style="margin:0 0 20px;font-size:14px;color:#9ba3b8;">Please contact your academy admin if you have questions.</p>`;
       bodyText = `Hi ${fee.athleteName},\n\nA new fee has been added:\n${fee.label}\nAmount: ${fee.currency} ${fee.amountDue.toFixed(2)}\nDue: ${fee.dueDate}\n\nSign in to view details: ${siteUrl()}`;
+    } else if (args.type === "reminder" || args.type === "overdue") {
+      const isOverdue = args.type === "overdue";
+      const safeBalance = escapeHtml(
+        `${fee.currency} ${fee.remainingBalance.toFixed(2)}`,
+      );
+      subject = isOverdue
+        ? `Overdue: ${fee.label}`
+        : `Reminder: ${fee.label} is due on ${fee.dueDate}`;
+      headline = isOverdue ? "A fee is overdue" : "A fee is due soon";
+      bodyHtml = `
+        <p style="margin:0 0 16px;font-size:15px;color:#9ba3b8;line-height:1.6;">
+          ${isOverdue ? "The fee below for" : "This is a friendly reminder about the fee below for"}
+          <strong style="color:#e2e8f0;">${safeName}</strong>${isOverdue ? " has passed its due date." : "."}
+        </p>
+        <div style="background:#0f1117;border-radius:8px;border:1px solid #2a2d3a;padding:16px 20px;margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:13px;color:#6b7280;">Description</span>
+            <span style="font-size:13px;color:#e2e8f0;font-weight:600;">${safeLabel}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:13px;color:#6b7280;">Amount outstanding</span>
+            <span style="font-size:15px;color:${isOverdue ? "#ef4444" : "#b5e853"};font-weight:700;">${safeBalance}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-size:13px;color:#6b7280;">Due date</span>
+            <span style="font-size:13px;color:#e2e8f0;">${safeDue}</span>
+          </div>
+        </div>
+        <p style="margin:0 0 20px;font-size:14px;color:#9ba3b8;">If you have already paid, please ignore this message or contact the academy.</p>`;
+      bodyText = `${isOverdue ? "Overdue fee" : "Fee due soon"} for ${fee.athleteName}:
+${fee.label}
+Outstanding: ${fee.currency} ${fee.remainingBalance.toFixed(2)}
+Due: ${fee.dueDate}
+
+If you have already paid, please ignore this message or contact the academy.
+
+Sign in for details: ${siteUrl()}`;
     } else if (args.type === "status_change") {
       const status = args.newStatus ?? "updated";
       const statusLabel =
@@ -238,11 +286,8 @@ export const sendFeeNotification = internalAction({
   </table>
 </body></html>`;
 
-    await sendEmail({
-      to: fee.athleteEmail,
-      subject,
-      html,
-      text: bodyText,
-    });
+    for (const to of recipients) {
+      await sendEmail({ to, subject, html, text: bodyText });
+    }
   },
 });

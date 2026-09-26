@@ -128,6 +128,17 @@ docker run -d -p 8080:80 --restart unless-stopped peakform
 
 Anyone else who signs up sees a "Waiting for access" screen until invited.
 
+### Fees and check-in
+
+- **Finance → Recurring monthly fees**: set a monthly fee for all active
+  athletes, a team, or one athlete. Two daily jobs run on Convex (04:17 and
+  05:17 UTC): one creates each month's fees, the other marks unpaid fees past
+  their due date as overdue and emails reminders (3 days before the due date,
+  and once when overdue) to the athlete and guardian emails on file.
+- **Athletes → Assign missing PINs** gives every active athlete a kiosk
+  check-in PIN. Parents see their child's PIN in the Family Portal. Run the
+  kiosk on a device signed in as a coach or admin.
+
 ---
 
 ## 6. Updating the site
