@@ -36,7 +36,7 @@ import { useCurrentUser } from "@/hooks/use-current-user.ts";
 
 const formSchema = z.object({
   email: z.string().trim().email("Enter a valid email address"),
-  role: z.enum(["coach", "athlete", "accounting"]),
+  role: z.enum(["academy_admin", "coach", "athlete", "accounting"]),
 });
 
 export default function InviteStaffDialog({
@@ -127,6 +127,11 @@ export default function InviteStaffDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      {user?.role === "platform_admin" && (
+                        <SelectItem value="academy_admin">
+                          Academy Admin
+                        </SelectItem>
+                      )}
                       <SelectItem value="coach">Coach</SelectItem>
                       <SelectItem value="athlete">Athlete</SelectItem>
                       <SelectItem value="accounting">Accounting</SelectItem>

@@ -83,7 +83,8 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default function Staff() {
   const { user } = useCurrentUser();
-  const isAdmin = user?.role === "academy_admin";
+  const isAdmin =
+    user?.role === "academy_admin" || user?.role === "platform_admin";
 
   const members = useQuery(api.users.listAcademyMembers, {});
   const invites = useQuery(api.invites.listInvites, isAdmin ? {} : "skip");

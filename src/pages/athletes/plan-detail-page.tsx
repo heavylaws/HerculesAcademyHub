@@ -227,7 +227,10 @@ export default function PlanDetail() {
   const { planId } = useParams<{ planId: string }>();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const canManage = user?.role === "academy_admin" || user?.role === "coach";
+  const canManage =
+    user?.role === "academy_admin" ||
+    user?.role === "coach" ||
+    user?.role === "platform_admin";
 
   const data = useQuery(
     api.trainingPlans.getPlan,

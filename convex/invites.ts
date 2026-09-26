@@ -36,10 +36,16 @@ export const createInvite = mutation({
             "Academy admins can only invite coaches, accounting staff, or athletes",
         });
       }
-    } else if (args.role !== "academy_admin") {
+    } else if (
+      args.role !== "academy_admin" &&
+      args.role !== "coach" &&
+      args.role !== "athlete" &&
+      args.role !== "accounting"
+    ) {
       throw new ConvexError({
         code: "FORBIDDEN",
-        message: "Platform admin invites must be for an academy admin",
+        message:
+          "Invites can be for academy managers, coaches, accounting staff, or athletes",
       });
     }
 
@@ -162,8 +168,11 @@ export const listInvites = query({
   args: { academyId: v.optional(v.id("academies")) },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, ["platform_admin", "academy_admin"]);
+    // Platform admins see the given academy, or the one they are working in.
     const academyId =
-      user.role === "academy_admin" ? user.academyId : args.academyId;
+      user.role === "academy_admin"
+        ? user.academyId
+        : (args.academyId ?? user.academyId);
     if (!academyId) {
       return [];
     }

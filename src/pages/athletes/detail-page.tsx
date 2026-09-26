@@ -86,7 +86,10 @@ export default function AthleteDetail() {
   const { athleteId } = useParams<{ athleteId: string }>();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const canManage = user?.role === "academy_admin" || user?.role === "coach";
+  const canManage =
+    user?.role === "academy_admin" ||
+    user?.role === "coach" ||
+    user?.role === "platform_admin";
 
   const athlete = useQuery(
     api.athletes.getAthlete,

@@ -26,7 +26,10 @@ import CreateTeamDialog from "./_components/create-team-dialog.tsx";
 
 export default function Teams() {
   const { user } = useCurrentUser();
-  const canManage = user?.role === "academy_admin" || user?.role === "coach";
+  const canManage =
+    user?.role === "academy_admin" ||
+    user?.role === "coach" ||
+    user?.role === "platform_admin";
 
   const teams = useQuery(api.teams.listTeams, {});
   const [createOpen, setCreateOpen] = useState(false);

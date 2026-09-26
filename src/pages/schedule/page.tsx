@@ -98,7 +98,10 @@ type NewSessionValues = z.infer<typeof newSessionSchema>;
 export default function SchedulePage() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const canManage = user?.role === "academy_admin" || user?.role === "coach";
+  const canManage =
+    user?.role === "academy_admin" ||
+    user?.role === "coach" ||
+    user?.role === "platform_admin";
 
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
@@ -208,7 +211,7 @@ export default function SchedulePage() {
             </Button>
           </div>
 
-          {(canManage || user?.role === "platform_admin") && (
+          {canManage && (
           <Button
             variant="outline"
             onClick={() => navigate("/kiosk")}

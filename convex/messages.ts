@@ -92,7 +92,8 @@ export const getConversation = query({
 
     if (
       !conversation.participantIds.includes(user._id) &&
-      user.role !== "academy_admin"
+      user.role !== "academy_admin" &&
+      user.role !== "platform_admin"
     ) {
       throw new ConvexError({
         code: "FORBIDDEN",
@@ -127,7 +128,8 @@ export const listMessages = query({
 
     if (
       !conversation.participantIds.includes(user._id) &&
-      user.role !== "academy_admin"
+      user.role !== "academy_admin" &&
+      user.role !== "platform_admin"
     ) {
       throw new ConvexError({
         code: "FORBIDDEN",
@@ -187,7 +189,8 @@ export const sendMessage = mutation({
 
     if (
       !conversation.participantIds.includes(user._id) &&
-      user.role !== "academy_admin"
+      user.role !== "academy_admin" &&
+      user.role !== "platform_admin"
     ) {
       throw new ConvexError({
         code: "FORBIDDEN",

@@ -47,7 +47,12 @@ export const listAnnouncements = query({
         if (user.role === "athlete") return false;
       }
       // If targeted to a specific role, check role
-      if (a.targetRole && a.targetRole !== user.role && user.role !== "academy_admin") {
+      if (
+        a.targetRole &&
+        a.targetRole !== user.role &&
+        user.role !== "academy_admin" &&
+        user.role !== "platform_admin"
+      ) {
         return false;
       }
       return true;

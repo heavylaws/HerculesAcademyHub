@@ -53,7 +53,10 @@ const CATEGORIES = [
 
 export default function AnnouncementsPage() {
   const { user } = useCurrentUser();
-  const canPost = user?.role === "academy_admin" || user?.role === "coach";
+  const canPost =
+    user?.role === "academy_admin" ||
+    user?.role === "coach" ||
+    user?.role === "platform_admin";
 
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");

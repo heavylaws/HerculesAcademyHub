@@ -349,3 +349,60 @@ describe("kiosk and check-in PINs", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("platform admin full access inside an academy", () => {
+  async function adminInAcademy() {
+    const t = convexTest(schema, modules);
+    const ids = await seed(t);
+    const adminId = await t.run((ctx) =>
+      ctx.db.insert("users", {
+        email: "owner@platform.test",
+        emailVerificationTime: 1,
+        role: "platform_admin",
+        academyId: ids.academyId,
+      }),
+    );
+    return { t, ...ids, admin: as(t, adminId) };
+  }
+
+  it("can invite coaches and academy managers to its academy", async () => {
+    const { admin, academyId } = await adminInAcademy();
+    for (const role of ["coach", "academy_admin", "accounting"] as const) {
+      await admin.mutation(api.invites.createInvite, {
+        academyId,
+        email: `${role}@new.test`,
+        role,
+      });
+    }
+    const invites = await admin.query(api.invites.listInvites, {});
+    expect(invites.map((i) => i.role).sort()).toEqual([
+      "academy_admin",
+      "accounting",
+      "coach",
+    ]);
+    await expect(
+      admin.mutation(api.invites.createInvite, {
+        academyId,
+        email: "another@platform.test",
+        role: "platform_admin",
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("can edit athletes and read any conversation in its academy", async () => {
+    const { t, admin, academyId, staffId, childId } = await adminInAcademy();
+    await admin.mutation(api.athletes.regenerateCheckInPin, {
+      athleteId: childId,
+    });
+    const conversationId = await t.run((ctx) =>
+      ctx.db.insert("conversations", {
+        academyId,
+        participantIds: [staffId],
+        createdAt: now,
+      }),
+    );
+    await expect(
+      admin.query(api.messages.listMessages, { conversationId }),
+    ).resolves.toBeDefined();
+  });
+});

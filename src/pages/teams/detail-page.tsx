@@ -74,7 +74,10 @@ export default function TeamDetail() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const canManage = user?.role === "academy_admin" || user?.role === "coach";
+  const canManage =
+    user?.role === "academy_admin" ||
+    user?.role === "coach" ||
+    user?.role === "platform_admin";
 
   const data = useQuery(
     api.teams.getTeam,

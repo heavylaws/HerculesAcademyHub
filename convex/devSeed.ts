@@ -35,6 +35,8 @@ type AcademySeed = {
   teamName: string;
   monthlyFee: number;
   coach: { name: string; email: string };
+  /** Academy manager (academy_admin): joins through a pending invite. */
+  manager: { name: string; email: string };
   metrics: Array<{ metric: string; unit: string; base: number; step: number }>;
   planItems: string[];
   athletes: AthleteSeed[];
@@ -49,6 +51,7 @@ export const SEED: AcademySeed[] = [
     teamName: "Sprint Squad",
     monthlyFee: 60,
     coach: { name: "Karim Haddad", email: "karim.haddad@hercules.test" },
+    manager: { name: "Ziad Khalil", email: "ziad.khalil@hercules.test" },
     metrics: [
       { metric: "Sprint 40m (s)", unit: "s", base: 5.6, step: -0.08 },
       { metric: "Vertical Jump (cm)", unit: "cm", base: 48, step: 1.5 },
@@ -118,6 +121,7 @@ export const SEED: AcademySeed[] = [
     teamName: "Junior Squad",
     monthlyFee: 80,
     coach: { name: "Nadine Farah", email: "nadine.farah@cedars.test" },
+    manager: { name: "Carla Sfeir", email: "carla.sfeir@cedars.test" },
     metrics: [
       { metric: "50m Freestyle Sprint (s)", unit: "s", base: 34.5, step: -0.6 },
       { metric: "Broad Jump (m)", unit: "m", base: 1.75, step: 0.04 },
@@ -187,6 +191,7 @@ export const SEED: AcademySeed[] = [
     teamName: "Competition Group",
     monthlyFee: 70,
     coach: { name: "Elie Karam", email: "elie.karam@beirutgym.test" },
+    manager: { name: "Rami Daher", email: "rami.daher@beirutgym.test" },
     metrics: [
       { metric: "Sit and Reach (cm)", unit: "cm", base: 30, step: 1.2 },
       { metric: "Vertical Jump (cm)", unit: "cm", base: 40, step: 1.2 },
@@ -246,7 +251,68 @@ export const SEED: AcademySeed[] = [
   },
 ];
 
-/** Every email that needs an account before seeding. */
+/**
+ * Creates a pending academy_admin invite for the academy's manager unless
+ * they already have an account or an invite. Signing up with that email then
+ * makes them the manager through the normal onboarding path.
+ */
+async function inviteManager(
+  ctx: MutationCtx,
+  seed: AcademySeed,
+  academyId: Id<"academies">,
+  invitedBy: Id<"users">,
+): Promise<string> {
+  const email = seed.manager.email;
+  const user = await ctx.db
+    .query("users")
+    .withIndex("email", (q) => q.eq("email", email))
+    .first();
+  if (user) {
+    return `${email}: account already exists (role ${user.role ?? "none"})`;
+  }
+  const pending = await ctx.db
+    .query("invites")
+    .withIndex("by_email_and_status", (q) =>
+      q.eq("email", email).eq("status", "pending"),
+    )
+    .first();
+  if (pending) return `${email}: invite already pending`;
+  await ctx.db.insert("invites", {
+    academyId,
+    email,
+    role: "academy_admin",
+    invitedBy,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  });
+  return `${email}: invited as academy manager`;
+}
+
+/** Invites the academy managers for academies that were already seeded. */
+export const inviteAcademyManagers = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    if (process.env.EMAIL_DEV_LOG !== "true") {
+      throw new ConvexError("devSeed only runs on a local/dev backend");
+    }
+    const results: string[] = [];
+    for (const seed of SEED) {
+      const academy = await ctx.db
+        .query("academies")
+        .withIndex("by_slug", (q) => q.eq("slug", seed.slug))
+        .first();
+      if (!academy) {
+        results.push(`${seed.name}: not seeded yet`);
+        continue;
+      }
+      const coach = await userByEmail(ctx, seed.coach.email);
+      results.push(await inviteManager(ctx, seed, academy._id, coach._id));
+    }
+    return results;
+  },
+});
+
+/** Every email that needs an account before seeding (managers join by invite afterwards). */
 export function seedEmails(): string[] {
   const emails = new Set<string>();
   for (const a of SEED) {
@@ -321,6 +387,7 @@ export const seedDemoData = internalMutation({
         academyId,
         name: seed.coach.name,
       });
+      await inviteManager(ctx, seed, academyId, coach._id);
 
       // Athletes (emails drive the real onboarding links below).
       const athletes: Array<Doc<"athletes">> = [];

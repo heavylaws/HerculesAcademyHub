@@ -55,7 +55,10 @@ function calculateAge(dateOfBirth: string | undefined): number | null {
 
 export default function Athletes() {
   const { user } = useCurrentUser();
-  const canManage = user?.role === "academy_admin" || user?.role === "coach";
+  const canManage =
+    user?.role === "academy_admin" ||
+    user?.role === "coach" ||
+    user?.role === "platform_admin";
 
   const [searchInput, setSearchInput] = useState("");
   const [search] = useDebounce(searchInput, 300);
