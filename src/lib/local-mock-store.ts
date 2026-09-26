@@ -294,6 +294,31 @@ class LocalMockStore {
     return { success: true, user };
   }
 
+  private ownAthletes(user: MockUser | null): MockAthlete[] {
+    if (!user) return [];
+    if (user.role === "guardian") {
+      return this.db.athletes.filter(
+        (a) =>
+          a.guardianUserId === user._id ||
+          (user.email !== undefined &&
+            a.guardianEmail?.toLowerCase() === user.email.toLowerCase()),
+      );
+    }
+    return this.db.athletes.filter((a) => a.userId === user._id);
+  }
+
+  private freePin(academyId: string): string {
+    const used = new Set(
+      this.db.athletes
+        .filter((a) => a.academyId === academyId)
+        .map((a) => a.checkInPin),
+    );
+    for (;;) {
+      const pin = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+      if (!used.has(pin)) return pin;
+    }
+  }
+
   public isAuthenticated(): boolean {
     return this.currentUserId !== null;
   }
@@ -722,7 +747,7 @@ class LocalMockStore {
             lastName: a.lastName,
             sport: a.sport,
             email: a.email,
-            checkInPin: a.checkInPin,
+            hasPin: a.checkInPin !== undefined,
             status: (rec?.status ?? "unrecorded") as
               | "present"
               | "late"
@@ -891,6 +916,56 @@ class LocalMockStore {
         const athlete = this.db.athletes.find((a) => a._id === athleteId);
         if (!athlete) throw new Error("Athlete not found");
         return athlete;
+      }
+
+      case "academies:getMyAcademy": {
+        return this.db.academies.find((a) => a._id === academyId) ?? null;
+      }
+
+      case "athletes:listMyAthletes": {
+        return this.ownAthletes(user);
+      }
+
+      case "athletes:listMyAthletesOverview": {
+        const now = new Date().toISOString();
+        return this.ownAthletes(user).map((athlete) => {
+          const teamIds = new Set(
+            this.db.teamMembers
+              .filter((m) => m.athleteId === athlete._id)
+              .map((m) => m.teamId),
+          );
+          const teams = this.db.teams.filter((t) => teamIds.has(t._id));
+          const next = this.db.trainingSessions
+            .filter((s) => teamIds.has(s.teamId) && s.startsAt >= now)
+            .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
+          const records = this.db.attendanceRecords.filter(
+            (r) => r.athleteId === athlete._id,
+          );
+          const attended = records.filter(
+            (r) => r.status === "present" || r.status === "late",
+          ).length;
+          return {
+            athlete,
+            teams: teams.map((t) => ({ _id: t._id, name: t.name })),
+            nextSession: next
+              ? {
+                  title: next.title,
+                  startsAt: next.startsAt,
+                  teamName: teams.find((t) => t._id === next.teamId)?.name,
+                }
+              : null,
+            recordedSessions: records.length,
+            attendanceRate:
+              records.length > 0
+                ? Math.round((attended / records.length) * 100)
+                : null,
+            metricsTracked: new Set(
+              this.db.assessments
+                .filter((a) => a.athleteId === athlete._id)
+                .map((a) => a.metric),
+            ).size,
+          };
+        });
       }
 
       case "athletes:getAthleteByUserId": {
@@ -1473,6 +1548,26 @@ class LocalMockStore {
         this.saveDb();
         this.notifyAll();
         return null;
+      }
+
+      case "athletes:regenerateCheckInPin": {
+        const athlete = this.db.athletes.find((a) => a._id === args.athleteId);
+        if (!athlete) throw new Error("Athlete not found");
+        athlete.checkInPin = this.freePin(athlete.academyId);
+        this.saveDb();
+        return athlete.checkInPin;
+      }
+
+      case "athletes:generateMissingCheckInPins": {
+        let assigned = 0;
+        for (const athlete of this.db.athletes) {
+          if (athlete.academyId !== academyId || athlete.checkInPin) continue;
+          if (athlete.status !== "active") continue;
+          athlete.checkInPin = this.freePin(athlete.academyId);
+          assigned++;
+        }
+        this.saveDb();
+        return assigned;
       }
 
       case "athletes:setAthleteStatus": {

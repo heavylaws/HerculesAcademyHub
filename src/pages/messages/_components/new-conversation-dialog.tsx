@@ -281,7 +281,7 @@ export default function NewConversationDialog({
               Initial Message (Optional)
             </Label>
             <Textarea
-              placeholder="Hi Marcus, let's review your posture and split times from yesterday's session..."
+              placeholder="Write your message..."
               value={initialMessage}
               onChange={(e) => setInitialMessage(e.target.value)}
               rows={3}

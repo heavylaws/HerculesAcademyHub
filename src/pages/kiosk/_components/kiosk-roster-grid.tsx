@@ -11,7 +11,7 @@ export interface KioskRosterAthlete {
   firstName: string;
   lastName: string;
   sport?: string;
-  checkInPin?: string;
+  hasPin?: boolean;
   status: "present" | "late" | "absent" | "excused" | "unrecorded";
   recordedAt?: string;
 }
@@ -146,7 +146,7 @@ export function KioskRosterGrid({
                           {athlete.sport}
                         </span>
                       )}
-                      {athlete.checkInPin && (
+                      {athlete.hasPin && (
                         <span className="text-[10px] font-mono text-muted-foreground/60">
                           PIN: ••••
                         </span>

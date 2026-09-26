@@ -107,6 +107,7 @@ export default function AthleteDetail() {
   const setStatus = useMutation(api.athletes.setAthleteStatus);
   const linkToUser = useMutation(api.athletes.linkAthleteToUser);
   const unlinkUser = useMutation(api.athletes.unlinkAthleteUser);
+  const regeneratePin = useMutation(api.athletes.regenerateCheckInPin);
   const getOrCreateConversation = useMutation(api.messages.getOrCreateConversation);
   const [editOpen, setEditOpen] = useState(false);
   const [createPlanOpen, setCreatePlanOpen] = useState(false);
@@ -385,13 +386,50 @@ export default function AthleteDetail() {
                 {athlete.phone ?? "No phone on file"}
               </div>
             </div>
-            {(athlete.guardianName || athlete.guardianPhone) && (
+            {(athlete.guardianName ||
+              athlete.guardianPhone ||
+              athlete.guardianEmail) && (
               <div className="mt-1 rounded-lg border bg-muted/40 p-3 text-sm">
                 <span className="font-medium">Guardian:</span>{" "}
                 {athlete.guardianName ?? "—"}
                 {athlete.guardianPhone ? ` · ${athlete.guardianPhone}` : ""}
+                {athlete.guardianEmail ? ` · ${athlete.guardianEmail}` : ""}
+                {athlete.guardianEmail && (
+                  <span className="text-muted-foreground">
+                    {athlete.guardianUserId
+                      ? " (account linked)"
+                      : " (not signed up yet)"}
+                  </span>
+                )}
               </div>
             )}
+            <div className="mt-1 flex items-center gap-2 text-sm">
+              <span className="font-medium">Kiosk check-in PIN:</span>
+              {athlete.checkInPin ? (
+                <span className="rounded bg-muted px-2 py-0.5 font-mono font-bold">
+                  {athlete.checkInPin}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Not assigned</span>
+              )}
+              {canManage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={async () => {
+                    try {
+                      const pin = await regeneratePin({ athleteId: athlete._id });
+                      toast.success(`New check-in PIN: ${pin}`);
+                    } catch {
+                      toast.error("Failed to generate PIN");
+                    }
+                  }}
+                >
+                  {athlete.checkInPin ? "New PIN" : "Assign PIN"}
+                </Button>
+              )}
+            </div>
           </div>
 
           {athlete.notes && (

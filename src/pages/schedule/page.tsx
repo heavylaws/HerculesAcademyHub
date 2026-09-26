@@ -208,6 +208,7 @@ export default function SchedulePage() {
             </Button>
           </div>
 
+          {(canManage || user?.role === "platform_admin") && (
           <Button
             variant="outline"
             onClick={() => navigate("/kiosk")}
@@ -216,6 +217,7 @@ export default function SchedulePage() {
             <TabletSmartphone className="size-4" />
             Launch Kiosk
           </Button>
+          )}
 
           {canManage && (
             <Button onClick={() => setScheduleOpen(true)}>

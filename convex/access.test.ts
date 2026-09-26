@@ -257,3 +257,95 @@ describe("platform admin", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("kiosk and check-in PINs", () => {
+  async function kioskSetup() {
+    const t = convexTest(schema, modules);
+    const ids = await seed(t);
+    const { sessionId } = await t.run(async (ctx) => {
+      const teamId = await ctx.db.insert("teams", {
+        academyId: ids.academyId,
+        name: "Team",
+        createdBy: ids.staffId,
+        createdAt: now,
+      });
+      for (const athleteId of [ids.selfId, ids.childId]) {
+        await ctx.db.insert("teamMembers", {
+          teamId,
+          athleteId,
+          academyId: ids.academyId,
+          createdAt: now,
+        });
+      }
+      const sessionId = await ctx.db.insert("trainingSessions", {
+        academyId: ids.academyId,
+        teamId,
+        title: "Practice",
+        startsAt: new Date().toISOString(),
+        durationMinutes: 60,
+        createdBy: ids.staffId,
+        createdAt: now,
+      });
+      return { sessionId };
+    });
+    const athleteUser = await newUser(t, "self@athlete.test", true);
+    await t.run((ctx) => onboardUser(ctx, athleteUser));
+    return { t, ...ids, sessionId, athleteUser };
+  }
+
+  it("assigns unique PINs and never sends them to the kiosk roster", async () => {
+    const { t, staffId, sessionId } = await kioskSetup();
+    const staff = as(t, staffId);
+    const assigned = await staff.mutation(
+      api.athletes.generateMissingCheckInPins,
+      {},
+    );
+    expect(assigned).toBe(3);
+    const pins = await t.run(async (ctx) =>
+      (await ctx.db.query("athletes").collect()).map((a) => a.checkInPin),
+    );
+    expect(new Set(pins).size).toBe(3);
+    expect(pins.every((p) => /^\d{4}$/.test(p ?? ""))).toBe(true);
+
+    const kiosk = await staff.query(
+      api.trainingSessions.getSessionKioskRoster,
+      { sessionId },
+    );
+    for (const row of kiosk.roster) {
+      expect(row).not.toHaveProperty("checkInPin");
+      expect(row.hasPin).toBe(true);
+    }
+  });
+
+  it("checks an athlete in by PIN on a staff device", async () => {
+    const { t, staffId, sessionId, selfId } = await kioskSetup();
+    const staff = as(t, staffId);
+    const pin = await staff.mutation(api.athletes.regenerateCheckInPin, {
+      athleteId: selfId,
+    });
+    const res = await staff.mutation(api.trainingSessions.checkInAthlete, {
+      sessionId,
+      pin,
+    });
+    expect(res.athlete._id).toBe(selfId);
+  });
+
+  it("athletes cannot use the kiosk or check anyone in remotely", async () => {
+    const { t, sessionId, athleteUser, selfId } = await kioskSetup();
+    const athlete = as(t, athleteUser);
+    await expect(
+      athlete.query(api.trainingSessions.getSessionKioskRoster, { sessionId }),
+    ).rejects.toThrow();
+    await expect(
+      athlete.mutation(api.trainingSessions.checkInAthlete, {
+        sessionId,
+        athleteId: selfId,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      athlete.mutation(api.athletes.regenerateCheckInPin, {
+        athleteId: selfId,
+      }),
+    ).rejects.toThrow();
+  });
+});

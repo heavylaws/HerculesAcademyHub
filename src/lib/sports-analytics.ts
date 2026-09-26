@@ -119,7 +119,10 @@ export function computeTrend(points: AssessmentPoint[], lowerBetter = false) {
   };
 }
 
-/** Generates a 6-pillar athletic radar profile from assessments data. */
+/**
+ * Athletic radar profile across up to 6 pillars. Only pillars with at least
+ * one recorded assessment are returned; scores are never invented.
+ */
 export function generateAthleticRadarProfile(
   groups: MetricGroup[],
 ): RadarAttribute[] {
@@ -156,14 +159,13 @@ export function generateAthleticRadarProfile(
     }
   }
 
-  return Object.entries(attributes).map(([attribute, data]) => {
-    const athleteScore =
-      data.athleteScores.length > 0
-        ? Math.round(
-            data.athleteScores.reduce((a, b) => a + b, 0) /
-              data.athleteScores.length,
-          )
-        : Math.round(data.avg * 0.95);
+  const measured = Object.entries(attributes).filter(
+    ([, data]) => data.athleteScores.length > 0,
+  );
+  return measured.map(([attribute, data]) => {
+    const athleteScore = Math.round(
+      data.athleteScores.reduce((a, b) => a + b, 0) / data.athleteScores.length,
+    );
 
     return {
       attribute,

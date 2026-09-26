@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server.js";
+import { mutation, query, type MutationCtx } from "./_generated/server.js";
+import type { Id } from "./_generated/dataModel.d.ts";
 import {
   listOwnAthletes,
   requireAcademyMember,
@@ -320,5 +321,144 @@ export const unlinkAthleteUser = mutation({
     });
 
     return null;
+  },
+});
+
+const PIN_LENGTH = 4;
+
+/** Random PIN not used by any other athlete in the academy. */
+async function generateUniquePin(
+  ctx: MutationCtx,
+  academyId: Id<"academies">,
+): Promise<string> {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const [n] = crypto.getRandomValues(new Uint32Array(1));
+    const pin = String(n % 10 ** PIN_LENGTH).padStart(PIN_LENGTH, "0");
+    const taken = await ctx.db
+      .query("athletes")
+      .withIndex("by_academy_and_pin", (q) =>
+        q.eq("academyId", academyId).eq("checkInPin", pin),
+      )
+      .first();
+    if (!taken) return pin;
+  }
+  throw new ConvexError({
+    code: "CONFLICT",
+    message: "Could not find a free PIN, please try again",
+  });
+}
+
+/** Academy admin/coach: give an athlete a new random kiosk check-in PIN. */
+export const regenerateCheckInPin = mutation({
+  args: { athleteId: v.id("athletes") },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, ["academy_admin", "coach"]);
+    const athlete = await ctx.db.get("athletes", args.athleteId);
+    if (!athlete) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Athlete not found" });
+    }
+    await requireAcademyMember(ctx, athlete.academyId);
+    const checkInPin = await generateUniquePin(ctx, athlete.academyId);
+    await ctx.db.patch("athletes", athlete._id, { checkInPin });
+    return checkInPin;
+  },
+});
+
+/** Academy admin/coach: give every active athlete without a PIN one. Returns how many were assigned. */
+export const generateMissingCheckInPins = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireRole(ctx, ["academy_admin", "coach"]);
+    if (!user.academyId) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "You are not part of an academy",
+      });
+    }
+    const athletes = await ctx.db
+      .query("athletes")
+      .withIndex("by_academy_and_status", (q) =>
+        q.eq("academyId", user.academyId!).eq("status", "active"),
+      )
+      .collect();
+    let assigned = 0;
+    for (const athlete of athletes) {
+      if (athlete.checkInPin) continue;
+      const checkInPin = await generateUniquePin(ctx, user.academyId);
+      await ctx.db.patch("athletes", athlete._id, { checkInPin });
+      assigned++;
+    }
+    return assigned;
+  },
+});
+
+/**
+ * Real summary of the caller's own athletes (themselves, or their children
+ * for guardians): teams, next session, attendance and assessments.
+ */
+export const listMyAthletesOverview = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    const athletes = await listOwnAthletes(ctx, user);
+    const now = new Date().toISOString();
+
+    return await Promise.all(
+      athletes.map(async (athlete) => {
+        const memberships = await ctx.db
+          .query("teamMembers")
+          .withIndex("by_athlete", (q) => q.eq("athleteId", athlete._id))
+          .collect();
+        const teams = (
+          await Promise.all(memberships.map((m) => ctx.db.get("teams", m.teamId)))
+        ).filter((t) => t !== null);
+
+        const upcoming = (
+          await Promise.all(
+            teams.map((team) =>
+              ctx.db
+                .query("trainingSessions")
+                .withIndex("by_team_and_startsAt", (q) =>
+                  q.eq("teamId", team._id).gte("startsAt", now),
+                )
+                .first(),
+            ),
+          )
+        ).filter((s) => s !== null);
+        upcoming.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+        const next = upcoming[0];
+
+        const records = await ctx.db
+          .query("attendanceRecords")
+          .withIndex("by_athlete", (q) => q.eq("athleteId", athlete._id))
+          .collect();
+        const attended = records.filter(
+          (r) => r.status === "present" || r.status === "late",
+        ).length;
+
+        const assessments = await ctx.db
+          .query("assessments")
+          .withIndex("by_athlete", (q) => q.eq("athleteId", athlete._id))
+          .collect();
+
+        return {
+          athlete,
+          teams: teams.map((t) => ({ _id: t._id, name: t.name })),
+          nextSession: next
+            ? {
+                title: next.title,
+                startsAt: next.startsAt,
+                teamName: teams.find((t) => t._id === next.teamId)?.name,
+              }
+            : null,
+          recordedSessions: records.length,
+          attendanceRate:
+            records.length > 0
+              ? Math.round((attended / records.length) * 100)
+              : null,
+          metricsTracked: new Set(assessments.map((a) => a.metric)).size,
+        };
+      }),
+    );
   },
 });

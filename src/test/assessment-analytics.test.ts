@@ -108,16 +108,19 @@ describe("Sports Performance Analytics & Calculations Suite", () => {
   });
 
   describe("Athletic Radar Profile Generation", () => {
-    it("generates 6 standard pillars: Speed, Power, Agility, Strength, Endurance, Mobility", () => {
-      const profile = generateAthleticRadarProfile([]);
-      expect(profile.length).toBe(6);
-      const attributes = profile.map((p) => p.attribute);
-      expect(attributes).toContain("Speed");
-      expect(attributes).toContain("Power");
-      expect(attributes).toContain("Agility");
-      expect(attributes).toContain("Strength");
-      expect(attributes).toContain("Endurance");
-      expect(attributes).toContain("Mobility");
+    it("never invents scores: no assessments means no pillars", () => {
+      expect(generateAthleticRadarProfile([])).toEqual([]);
+    });
+
+    it("only returns pillars that have recorded assessments", () => {
+      const profile = generateAthleticRadarProfile([
+        {
+          metric: "Sprint 40m (s)",
+          unit: "s",
+          points: [{ _id: "1", assessedOn: "2026-09-01", value: 4.6 }],
+        },
+      ]);
+      expect(profile.map((p) => p.attribute)).toEqual(["Speed"]);
     });
 
     it("bounds all scores within 40 to 100 percentage range", () => {

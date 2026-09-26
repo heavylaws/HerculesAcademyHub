@@ -7,6 +7,13 @@ import {
   requireRole,
   requireUser,
 } from "./lib/auth.ts";
+
+/**
+ * The kiosk runs on a staff-signed-in device (athletes check in there with
+ * their PIN), so only staff may read the roster or record check-ins. This
+ * keeps attendance trustworthy: nobody can mark themselves present remotely.
+ */
+const KIOSK_ROLES: Array<"academy_admin" | "coach"> = ["academy_admin", "coach"];
 import { attendanceStatusValidator } from "./schema.ts";
 import type { Doc } from "./_generated/dataModel.d.ts";
 
@@ -547,7 +554,7 @@ export const listTodaySessions = query({
 export const getSessionKioskRoster = query({
   args: { sessionId: v.id("trainingSessions") },
   handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
+    const user = await requireRole(ctx, KIOSK_ROLES);
     if (!user.academyId) {
       throw new ConvexError({ code: "FORBIDDEN", message: "No academy access" });
     }
@@ -582,8 +589,7 @@ export const getSessionKioskRoster = query({
         firstName: a.firstName,
         lastName: a.lastName,
         sport: a.sport,
-        email: a.email,
-        checkInPin: a.checkInPin,
+        hasPin: a.checkInPin !== undefined,
         status: (rec?.status ?? "unrecorded") as
           | "present"
           | "late"
@@ -637,7 +643,7 @@ export const checkInAthlete = mutation({
     pin: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
+    const user = await requireRole(ctx, KIOSK_ROLES);
     if (!user.academyId) {
       throw new ConvexError({ code: "FORBIDDEN", message: "No academy access" });
     }
@@ -736,7 +742,7 @@ export const undoCheckIn = mutation({
     athleteId: v.id("athletes"),
   },
   handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
+    const user = await requireRole(ctx, KIOSK_ROLES);
     if (!user.academyId) {
       throw new ConvexError({ code: "FORBIDDEN", message: "No academy access" });
     }

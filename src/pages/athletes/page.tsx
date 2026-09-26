@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { Link } from "react-router-dom";
-import { Users, Plus, Search, Upload } from "lucide-react";
+import { Users, Plus, Search, Upload, KeyRound } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
@@ -63,6 +64,20 @@ export default function Athletes() {
   });
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const generatePins = useMutation(api.athletes.generateMissingCheckInPins);
+
+  const handleGeneratePins = async () => {
+    try {
+      const assigned = await generatePins({});
+      toast.success(
+        assigned === 0
+          ? "Every active athlete already has a check-in PIN"
+          : `Assigned check-in PINs to ${assigned} athlete${assigned === 1 ? "" : "s"}`,
+      );
+    } catch {
+      toast.error("Failed to assign PINs");
+    }
+  };
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -82,6 +97,10 @@ export default function Athletes() {
             <Button variant="secondary" onClick={() => setImportOpen(true)}>
               <Upload className="size-4" />
               Import CSV
+            </Button>
+            <Button variant="secondary" onClick={handleGeneratePins}>
+              <KeyRound className="size-4" />
+              Assign missing PINs
             </Button>
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="size-4" />

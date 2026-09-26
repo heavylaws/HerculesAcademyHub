@@ -286,7 +286,12 @@ export default function VideoHubPage() {
             onOpenChange={(open) => !open && setActiveStudioAnalysis(null)}
             primaryAnalysis={activeStudioAnalysis}
             allAnalyses={filteredAnalyses}
-            athleteName="Marcus Vance"
+            athleteName={(() => {
+              const a = athletes?.find(
+                (x) => x._id === activeStudioAnalysis.athleteId,
+              );
+              return a ? `${a.firstName} ${a.lastName}` : "Athlete";
+            })()}
           />
         )}
       </div>

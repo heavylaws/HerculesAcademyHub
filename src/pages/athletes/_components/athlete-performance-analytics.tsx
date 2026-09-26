@@ -190,11 +190,17 @@ export default function AthletePerformanceAnalytics({
             <div>
               <div className="text-xs text-muted-foreground font-medium">Profile Score</div>
               <div className="text-2xl font-bold font-display">
-                {Math.round(
-                  radarData.reduce((acc, curr) => acc + curr.athleteScore, 0) /
-                    (radarData.length || 1),
+                {radarData.length === 0 ? (
+                  "—"
+                ) : (
+                  <>
+                    {Math.round(
+                      radarData.reduce((acc, curr) => acc + curr.athleteScore, 0) /
+                        radarData.length,
+                    )}
+                    <span className="text-xs text-muted-foreground font-normal"> / 100</span>
+                  </>
                 )}
-                <span className="text-xs text-muted-foreground font-normal"> / 100</span>
               </div>
             </div>
           </CardContent>
@@ -206,8 +212,8 @@ export default function AthletePerformanceAnalytics({
               <Sparkles className="size-5" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground font-medium">Tier Classification</div>
-              <div className="text-sm font-semibold text-purple-400">Academy Varsity</div>
+              <div className="text-xs text-muted-foreground font-medium">Personal Bests</div>
+              <div className="text-2xl font-bold font-display">{personalBests.length}</div>
             </div>
           </CardContent>
         </Card>
@@ -225,15 +231,22 @@ export default function AthletePerformanceAnalytics({
                   Athletic Competency Radar
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  6-pillar physical profile vs Academy Baseline & Elite targets
+                  Measured areas only. 100 = reference target for each test
                 </CardDescription>
               </div>
               <Badge variant="outline" className="text-[11px]">
-                Standardized
+                {radarData.length}/6 areas
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
+            {radarData.length < 3 ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                Record assessments in at least 3 areas (speed, power, agility,
+                strength, endurance, mobility) to see this profile.
+              </p>
+            ) : (
+            <>
             <div className="w-full h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
@@ -254,13 +267,6 @@ export default function AthletePerformanceAnalytics({
                     stroke="#10b981"
                     fill="#10b981"
                     fillOpacity={0.4}
-                  />
-                  <Radar
-                    name="Academy Avg"
-                    dataKey="academyAvg"
-                    stroke="#3b82f6"
-                    fill="#3b82f6"
-                    fillOpacity={0.15}
                   />
                   <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
                 </RadarChart>
@@ -284,10 +290,12 @@ export default function AthletePerformanceAnalytics({
                 </div>
               </div>
               <div>
-                <div className="text-muted-foreground">Consistency</div>
-                <div className="font-semibold text-foreground">94%</div>
+                <div className="text-muted-foreground">Areas measured</div>
+                <div className="font-semibold text-foreground">{radarData.length} / 6</div>
               </div>
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
 

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api.js";
 import { format } from "date-fns";
 import {
   Calendar,
@@ -55,6 +57,7 @@ export function KioskHeader({
   onSyncOffline,
   isSyncing = false,
 }: KioskHeaderProps) {
+  const academy = useQuery(api.academies.getMyAcademy, {});
   const navigate = useNavigate();
   const [time, setTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
@@ -116,7 +119,7 @@ export function KioskHeader({
             </span>
           </div>
           <p className="text-xs font-medium text-muted-foreground">
-            Hercules Academy Attendance Terminal
+            {academy?.name ? `${academy.name} · ` : ""}Attendance Terminal
           </p>
         </div>
       </div>

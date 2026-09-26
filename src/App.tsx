@@ -161,7 +161,7 @@ export default function App() {
             <Route
               path="/kiosk"
               element={
-                <ProtectedRoute allow={["platform_admin", "academy_admin", "coach", "athlete"]}>
+                <ProtectedRoute allow={["platform_admin", "academy_admin", "coach"]}>
                   <KioskPage />
                 </ProtectedRoute>
               }
@@ -169,7 +169,7 @@ export default function App() {
             <Route
               path="/kiosk/:sessionId"
               element={
-                <ProtectedRoute allow={["platform_admin", "academy_admin", "coach", "athlete"]}>
+                <ProtectedRoute allow={["platform_admin", "academy_admin", "coach"]}>
                   <KioskPage />
                 </ProtectedRoute>
               }

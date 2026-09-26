@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Delete, KeyRound, Sparkles } from "lucide-react";
+import { Delete, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 
@@ -140,19 +140,6 @@ export function KioskPinKeypad({ onSubmitPin, isLoading }: KioskPinKeypadProps) 
         >
           <Delete className="size-6 text-muted-foreground" />
         </Button>
-      </div>
-
-      {/* Demo helper badge */}
-      <div className="mt-4 rounded-2xl border border-border/60 bg-muted/40 p-3.5 text-center text-xs text-muted-foreground w-full">
-        <div className="flex items-center justify-center gap-1.5 font-semibold text-foreground mb-1">
-          <Sparkles className="size-3.5 text-primary" />
-          <span>Demo Athlete PINs</span>
-        </div>
-        <p className="font-mono text-[11px] text-muted-foreground">
-          Marcus: <span className="font-bold text-foreground">1024</span> • Elena:{" "}
-          <span className="font-bold text-foreground">2048</span> • Chloe:{" "}
-          <span className="font-bold text-foreground">6144</span>
-        </p>
       </div>
     </div>
   );

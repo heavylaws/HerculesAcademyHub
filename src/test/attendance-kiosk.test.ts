@@ -39,6 +39,7 @@ describe("Session Attendance Kiosk & Athlete Self-Check-in Suite", () => {
           firstName: string;
           lastName: string;
           checkInPin?: string;
+          hasPin?: boolean;
           status: string;
         }>;
         stats: {
@@ -56,10 +57,11 @@ describe("Session Attendance Kiosk & Athlete Self-Check-in Suite", () => {
       expect(data.roster.length).toBeGreaterThan(0);
       expect(data.stats.total).toBe(data.roster.length);
 
-      // Verify Marcus Vance is on the roster with checkInPin 1024
+      // The kiosk roster says whether a PIN exists but never exposes it
       const marcus = data.roster.find((a) => a._id === "ath_marcus");
       expect(marcus).toBeDefined();
-      expect(marcus?.checkInPin).toBe("1024");
+      expect(marcus?.hasPin).toBe(true);
+      expect(marcus?.checkInPin).toBeUndefined();
     });
   });
 
