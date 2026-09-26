@@ -38,3 +38,6 @@ archives/
 
 # Build artifacts (build locally; never commit bundles)
 dist.zip
+
+# Local test credentials (never commit)
+credentials.md
