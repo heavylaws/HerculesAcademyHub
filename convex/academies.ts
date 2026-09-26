@@ -73,6 +73,41 @@ export const listAcademies = query({
   },
 });
 
+/**
+ * Platform admin: every academy with head counts (athletes, managers, coaches,
+ * accounting staff, guardians), for the platform-wide overview.
+ */
+export const platformOverview = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireRole(ctx, ["platform_admin"]);
+    const academies = await ctx.db.query("academies").order("desc").collect();
+    return await Promise.all(
+      academies.map(async (academy) => {
+        const athletes = await ctx.db
+          .query("athletes")
+          .withIndex("by_academy", (q) => q.eq("academyId", academy._id))
+          .collect();
+        const members = await ctx.db
+          .query("users")
+          .withIndex("by_academy", (q) => q.eq("academyId", academy._id))
+          .collect();
+        const count = (role: string) =>
+          members.filter((m) => m.role === role).length;
+        return {
+          ...academy,
+          activeAthletes: athletes.filter((a) => a.status === "active").length,
+          totalAthletes: athletes.length,
+          managers: count("academy_admin"),
+          coaches: count("coach"),
+          accounting: count("accounting"),
+          guardians: count("guardian"),
+        };
+      }),
+    );
+  },
+});
+
 /** Platform admin: toggle an academy's active/suspended status. */
 export const setAcademyStatus = mutation({
   args: {

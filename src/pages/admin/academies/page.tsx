@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { useNavigate } from "react-router-dom";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
 import {
@@ -11,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
-import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Card,
@@ -59,7 +60,8 @@ import CreateAcademyDialog from "./_components/create-academy-dialog.tsx";
 import InviteAcademyAdminDialog from "./_components/invite-academy-admin-dialog.tsx";
 
 export default function Academies() {
-  const academies = useQuery(api.academies.listAcademies, {});
+  const academies = useQuery(api.academies.platformOverview, {});
+  const navigate = useNavigate();
   const setStatus = useMutation(api.academies.setAcademyStatus);
   const deleteAcademy = useMutation(api.academies.deleteAcademy);
   const setActiveAcademy = useMutation(api.academies.setActiveAcademy);
@@ -98,6 +100,7 @@ export default function Academies() {
     try {
       await setActiveAcademy({ academyId });
       toast.success(`Now working in "${name}"`);
+      navigate("/athletes");
     } catch (error) {
       toast.error(
         error instanceof ConvexError
@@ -173,13 +176,17 @@ export default function Academies() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Academy</TableHead>
+                  <TableHead className="text-right">Athletes</TableHead>
+                  <TableHead className="text-right">Managers</TableHead>
+                  <TableHead className="text-right">Coaches</TableHead>
+                  <TableHead className="text-right">Parents</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {academies.map((academy: Doc<"academies">) => (
+                {academies.map((academy) => (
                   <TableRow key={academy._id}>
                     <TableCell>
                       <div className="flex flex-col">
@@ -196,6 +203,24 @@ export default function Academies() {
                         </span>
                       </div>
                     </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {academy.activeAthletes}
+                      {academy.totalAthletes > academy.activeAthletes && (
+                        <span className="text-xs text-muted-foreground">
+                          {" "}
+                          / {academy.totalAthletes}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {academy.managers}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {academy.coaches}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {academy.guardians}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -211,6 +236,18 @@ export default function Academies() {
                       {new Date(academy.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          user?.academyId === academy._id
+                            ? navigate("/athletes")
+                            : handleSetActive(academy._id, academy.name)
+                        }
+                      >
+                        Open
+                      </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -274,6 +311,7 @@ export default function Academies() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

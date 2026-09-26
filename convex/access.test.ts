@@ -256,6 +256,44 @@ describe("platform admin", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("platform admin sees every academy's counts and every user", async () => {
+    const t = convexTest(schema, modules);
+    const { staffId, academyId, otherAcademyId } = await seed(t);
+    const adminId = await t.run((ctx) =>
+      ctx.db.insert("users", {
+        email: "owner@platform.test",
+        emailVerificationTime: 1,
+        role: "platform_admin",
+        academyId: otherAcademyId,
+      }),
+    );
+    const admin = as(t, adminId);
+
+    const overview = await admin.query(api.academies.platformOverview, {});
+    expect(overview).toHaveLength(2);
+    const main = overview.find((a) => a._id === academyId)!;
+    expect(main.managers).toBe(1);
+    expect(main.activeAthletes).toBeGreaterThan(0);
+    // The platform admin working in an academy is not counted as its staff.
+    const other = overview.find((a) => a._id === otherAcademyId)!;
+    expect(other.managers + other.coaches + other.accounting).toBe(0);
+
+    const users = await admin.query(api.users.listAllUsers, {});
+    expect(users.find((u) => u._id === staffId)?.academyName).toBe("Academy");
+    expect(users.find((u) => u._id === adminId)?.academyName).toBeUndefined();
+  });
+
+  it("non-admins cannot read the platform overview or user list", async () => {
+    const t = convexTest(schema, modules);
+    const { staffId } = await seed(t);
+    await expect(
+      as(t, staffId).query(api.academies.platformOverview, {}),
+    ).rejects.toThrow();
+    await expect(
+      as(t, staffId).query(api.users.listAllUsers, {}),
+    ).rejects.toThrow();
+  });
 });
 
 describe("kiosk and check-in PINs", () => {

@@ -1192,6 +1192,45 @@ class LocalMockStore {
         return this.db.academies;
       }
 
+      case "academies:platformOverview": {
+        return this.db.academies.map((academy) => {
+          const athletes = this.db.athletes.filter(
+            (a) => a.academyId === academy._id,
+          );
+          const members = this.db.users.filter(
+            (u) => u.academyId === academy._id,
+          );
+          const count = (role: string) =>
+            members.filter((m) => m.role === role).length;
+          return {
+            ...academy,
+            activeAthletes: athletes.filter((a) => a.status === "active").length,
+            totalAthletes: athletes.length,
+            managers: count("academy_admin"),
+            coaches: count("coach"),
+            accounting: count("accounting"),
+            guardians: count("guardian"),
+          };
+        });
+      }
+
+      case "users:listAllUsers": {
+        const names = new Map(this.db.academies.map((a) => [a._id, a.name]));
+        return this.db.users.map((u) => ({
+          _id: u._id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          emailVerified: true,
+          academyId: u.academyId,
+          academyName:
+            u.role === "platform_admin" || !u.academyId
+              ? undefined
+              : names.get(u.academyId),
+          createdAt: 0,
+        }));
+      }
+
       case "invites:listInvites": {
         if (!academyId) return [];
         return this.db.invites.filter((inv) => inv.academyId === academyId);

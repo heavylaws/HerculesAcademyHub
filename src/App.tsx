@@ -25,6 +25,7 @@ const FinancePage = lazy(() => import("./pages/finance/page.tsx"));
 const MyFeesPage = lazy(() => import("./pages/finance/my-fees-page.tsx"));
 const InvoicesPage = lazy(() => import("./pages/invoices/page.tsx"));
 const AdminBillingPage = lazy(() => import("./pages/admin/billing/page.tsx"));
+const AllUsersPage = lazy(() => import("./pages/admin/users/page.tsx"));
 const SchedulePage = lazy(() => import("./pages/schedule/page.tsx"));
 const VideoHubPage = lazy(() => import("./pages/athletes/video-hub-page.tsx"));
 const AnnouncementsPage = lazy(() => import("./pages/announcements/page.tsx"));
@@ -211,6 +212,14 @@ export default function App() {
               element={
                 <ProtectedRoute allow={["platform_admin"]}>
                   <AdminBillingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute allow={["platform_admin"]}>
+                  <AllUsersPage />
                 </ProtectedRoute>
               }
             />

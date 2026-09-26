@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/notifications/notification-bell.tsx";
+import { AcademySwitcher } from "@/components/layout/academy-switcher.tsx";
 import {
   Sidebar,
   SidebarContent,
@@ -67,7 +68,8 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { to: "/staff", label: "Staff", icon: Users },
     { to: "/finance", label: "Fees", icon: DollarSign },
     { to: "/invoices", label: "Invoices", icon: FileText },
-    { to: "/admin/academies", label: "Academies (SaaS)", icon: Building2 },
+    { to: "/admin/academies", label: "All academies", icon: Building2 },
+    { to: "/admin/users", label: "All users", icon: Users },
     { to: "/admin/billing", label: "Billing (SaaS)", icon: DollarSign },
   ],
   academy_admin: [
@@ -245,9 +247,13 @@ export default function AppLayout({
           <div className="flex items-center gap-2">
             <SidebarTrigger />
             <Separator orientation="vertical" className="h-4" />
-            <span className="text-sm font-medium text-muted-foreground">
-              {role ? ROLE_LABEL[role] : ""} Workspace
-            </span>
+            {role === "platform_admin" ? (
+              <AcademySwitcher currentAcademyId={user?.academyId} />
+            ) : (
+              <span className="text-sm font-medium text-muted-foreground">
+                {role ? ROLE_LABEL[role] : ""} Workspace
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />

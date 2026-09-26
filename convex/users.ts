@@ -51,6 +51,33 @@ export const listAcademyMembers = query({
   },
 });
 
+/** Platform admin: every user on the platform with their academy's name. */
+export const listAllUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireRole(ctx, ["platform_admin"]);
+    const [users, academies] = await Promise.all([
+      ctx.db.query("users").collect(),
+      ctx.db.query("academies").collect(),
+    ]);
+    const academyName = new Map(academies.map((a) => [a._id, a.name]));
+    return users.map((u) => ({
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      emailVerified: u.emailVerificationTime !== undefined,
+      academyId: u.academyId,
+      // A platform admin's academyId is only the academy it is working in.
+      academyName:
+        u.role === "platform_admin" || !u.academyId
+          ? undefined
+          : academyName.get(u.academyId),
+      createdAt: u._creationTime,
+    }));
+  },
+});
+
 /**
  * Academy admin: update a staff member's role within their academy.
  */
