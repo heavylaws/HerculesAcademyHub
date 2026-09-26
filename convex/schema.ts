@@ -53,8 +53,7 @@ export default defineSchema({
   })
     .index("email", ["email"])
     .index("phone", ["phone"])
-    .index("by_academy", ["academyId"])
-    .index("by_email", ["email"]),
+    .index("by_academy", ["academyId"]),
 
   academies,
   invites,

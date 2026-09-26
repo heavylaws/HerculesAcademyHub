@@ -9,6 +9,15 @@ export async function sendEmail(message: {
   html: string;
   text?: string;
 }): Promise<void> {
+  // Local testing only: print emails (incl. sign-up codes) to the Convex logs
+  // instead of sending them. Never set EMAIL_DEV_LOG on a real deployment.
+  if (process.env.EMAIL_DEV_LOG === "true") {
+    console.log(
+      `[EMAIL_DEV_LOG] to=${message.to} subject=${message.subject}
+${message.text ?? message.html}`,
+    );
+    return;
+  }
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   if (!apiKey || !from) {

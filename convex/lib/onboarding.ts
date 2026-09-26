@@ -118,7 +118,7 @@ export async function linkGuardianByEmail(
   }
   const guardian = await ctx.db
     .query("users")
-    .withIndex("by_email", (q) => q.eq("email", athlete.guardianEmail))
+    .withIndex("email", (q) => q.eq("email", athlete.guardianEmail))
     .first();
   if (!guardian || guardian.emailVerificationTime === undefined) {
     if (athlete.guardianUserId) {

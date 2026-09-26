@@ -260,7 +260,7 @@ export const linkAthleteToUser = mutation({
     const email = args.email.trim().toLowerCase();
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .first();
 
     if (!user) {
